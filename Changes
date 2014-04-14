@@ -1,4 +1,6 @@
-Revision history for WebService-Amazon-DynamoDB
+2014-04-14  Rusty Conover  <rusty@luckydinosaur.com>
 
-0.001     2013-11-01 08:17:19 Europe/London
-	Initial CPAN release
+	* Commit changes for Amazon::DynamoDB based on
+	WebService::Amazon::DynamoDB, but a more complete and importantly
+	tested implementation.
+
