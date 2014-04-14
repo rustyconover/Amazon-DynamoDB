@@ -1,6 +1,6 @@
 package Amazon::DynamoDB;
 
-# ABSTRACT: Abstract API support for Amazon DynamoDB
+# ABSTRACT: API support for Amazon DynamoDB
 use strict;
 use warnings;
 
@@ -55,9 +55,7 @@ for applications based on L<IO::Async> (this gives nonblocking behaviour)
 block, timeouts are unlikely to work)
 
 =item * L<Amazon::DynamoDB::MojoUA> - use L<Mojo::UserAgent>,
-should be suitable for integration into a L<Mojolicious> application.
-
-
+should be suitable for integration into a L<Mojolicious> application.  (not well tested)
 
 =back
 
@@ -99,23 +97,25 @@ __END__
 
 =item * L<AWS::CLIWrapper> - alternative approach using wrappers around AWS commandline tools
 
-=item * L<Amazon::DynamoDB> - the parent of this module.
+=item * L<WebService::Amazon::DynamoDB> - this module was based off of this initial code.
 
 =back
 
 
 =head1 IMPLEMENTATION PHILOSOPHY
 
-Attempts to stick as close to Amazon's API as possible while making some inconvenient limits
-easy to work around.
+This module attempts to stick as close to Amazon's API as possible
+while making some inconvenient limits easy to work with.
 
-Parameters are named the same, return values are as described.   Documentation for each method
-is commonly found at:
+Parameters are named the same, return values are as described.
+Documentation for each method is commonly found at:
 
 L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Operations.html>
 
-=back
+For examples see the test cases, most functionality is well exercised
+via tests.
 
+=back
 
 =head1 AUTHOR
 
@@ -129,5 +129,3 @@ Tom Molesworth <cpan@entitymodel.com>
 
 Copyright 2014 Lucky Dinosaur, LLC. Licensed under the same terms as Perl itself.
 Copyright Tom Molesworth 2013. Licensed under the same terms as Perl itself.
-
-
