@@ -13,9 +13,6 @@ unless ( $ENV{'AMAZON_DYNAMODB_EXPENSIVE_TESTS'} ) {
     plan tests => 80;
 }
 
-use Data::Dumper;
-
-
 my $ddb = TestSettings::get_ddb();
 my $table_name = TestSettings::random_table_name();
 
