@@ -560,14 +560,12 @@ sub batch_write_item {
                 die("Cannot have DeleteRequest and PutRequest operations on the same table");
             }
 
-            if (defined($item->{DeleteRequest})) {
-                foreach my $k (keys %{$item->{DeleteRequest}}) {
-                    $r->{DeleteRequest}->{Key}->{$k} = { _encode_type_and_value($item->{DeleteRequest}->{$k}) };
-                }
-            }
-            if (defined($item->{PutRequest})) {
-                foreach my $k (keys %{$item->{PutRequest}}) {
-                    $r->{PutRequest}->{Item}->{$k} = { _encode_type_and_value($item->{PutRequest}->{$k}) };
+            foreach my $name ('DeleteRequest', 'PutRequest') {
+                if (defined($item->{$name})) {
+                    my $key = $item->{$name}->{Key};
+                    foreach my $k (keys %$key) {
+                        $r->{$name}->{Key}->{$k} = { _encode_type_and_value($key->{$k}) };
+                    }
                 }
             }
             if (defined($r)) {
