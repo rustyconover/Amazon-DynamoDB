@@ -1,3 +1,7 @@
+2014-04-16  Rusty Conover  <rconover@macbook.home>
+
+	* Fix interpretation of Limit parameter for scans and queries
+
 2014-04-14  Rusty Conover  <rusty@luckydinosaur.com>
 
 	* Commit changes for Amazon::DynamoDB based on
