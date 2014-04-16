@@ -1145,7 +1145,10 @@ my $encode_key = sub {
     my $r;
     foreach my $k (keys %$source) {
         my $v = $source->{$k};	
-        $r->{$k} = { _encode_type_and_value($v) };
+        # There is no sense in encoding undefined values.
+        if (defined($v)) {
+            $r->{$k} = { _encode_type_and_value($v) };
+        }
     }
     return $r;
 };
@@ -1186,7 +1189,7 @@ my $parameter_type_definitions = {
                 my $info = $source->{$key};
 
                 if (defined($info->{Exists})) {
-                    $r->{$key}->{Exists} = ($info->{Exists} ? 'true' : 'false');
+                    $r->{$key}->{Exists} = $info->{Exists};
                 }
                 
                 if (defined($info->{Value})) {
