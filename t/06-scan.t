@@ -80,7 +80,7 @@ ok($ddb->batch_write_item(
 }
 
 
-# Test limiting and retrieved attributes.
+# Limit is the number of items examined per call, not a total limit on the number of rows to retrieve.
 {
 
     my $limit = int(scalar(@put_items)/3);
@@ -95,9 +95,7 @@ ok($ddb->batch_write_item(
         TableName => $table_name
     )->is_done, "Scan completed successfully.");
     
-    
-    is(scalar(@found_items), $limit, "Equal number of items retrieved from table as limit specified");
-
+    is(scalar(@found_items), scalar(@put_items), "Equal number of items retrieved from table as were put");
     my @seen_keys = List::MoreUtils::uniq(map { keys %$_ } @found_items);
     is(scalar(@seen_keys), 1, "Total seen keys is only 1");
     is($seen_keys[0], "user_id", "Only user_id was returned");

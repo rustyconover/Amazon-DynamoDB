@@ -262,7 +262,6 @@ Waits for the given table to be marked as active.
  
 =item * DesiredStatus - status to expect before completing.  Defaults to ACTIVE
 
-
   $ddb->wait_for_table_status(TableName => $table_name);
 
 =cut
@@ -966,8 +965,7 @@ sub _scan_or_query_process {
                 
                 $records_seen += $data->{Count};
                 
-                if ((defined($args->{Limit}) && $records_seen == $args->{Limit}) ||
-                        !defined($payload->{ExclusiveStartKey})) {
+                if (!defined($payload->{ExclusiveStartKey})) {
                     $finished = 1;
                 }
                 return $data;
