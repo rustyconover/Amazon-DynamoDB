@@ -31,7 +31,6 @@ ok(defined($presidents_data), "presidents.json was successfully read");
 my $ddb = TestSettings::get_ddb();
 my $table_name = TestSettings::random_table_name();
 
-
 {
     my @all_tables;    
     ok($ddb->each_table(
@@ -102,20 +101,23 @@ ok($wait->is_done, "Created table is ready");
 
 
 my $id = 1;
-ok($ddb->batch_write_item(
+my $write = $ddb->batch_write_item(
     RequestItems => {
         $table_name => [
             map {
                 {
-                    
                     PutRequest => {
-                        id => int($id++),
-                        %$_,
-                    },
+                        Item => {
+                            id => int($id++),
+                            %$_
+                        }
+                    }
                 }
             } @$presidents_data
         ]
-    })->is_done, "Batch write item successfully completed");
+    });
+
+ok($write->is_done, "Batch write item successfully completed");
 
 
 # Give some time for the data to make it everywhere

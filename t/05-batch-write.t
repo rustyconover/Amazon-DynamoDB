@@ -43,8 +43,10 @@ ok($ddb->batch_write_item(
         $table_name => [
             {
                 PutRequest => {
-                    user_id => 3000,
-                    name => "Test batch write",
+                    Item =>  {
+                        user_id => 3000,
+                        name => "Test batch write",
+                    }
                 }
             }
         ]
@@ -55,6 +57,7 @@ ok($ddb->get_item(sub {
                       my $i = shift;
                       $returned_item = $i;
                   },
+                  ConsistentRead => 'true',
                   TableName => $table_name,
                   Key => {
                       user_id => 3000
@@ -72,7 +75,9 @@ ok($ddb->batch_write_item(
         $table_name => [
             {
                 DeleteRequest => {
-                    user_id => 3000,
+                    Key => {
+                        user_id => 3000,
+                    }
                 }
             }
         ]
@@ -102,8 +107,10 @@ ok($ddb->batch_write_item(
             map {
                 {
                     PutRequest => {
-                        user_id => $_,
-                        email => 'example@test.com',
+                        Item => {
+                            user_id => $_,
+                            email => 'example@test.com',
+                        }
                     }
                 }
             } @batch_keys
@@ -142,7 +149,9 @@ ok($ddb->batch_write_item(
             map {
                 {
                     DeleteRequest => {
-                        user_id => $_
+                        Key => {
+                            user_id => $_
+                        }
                     }
                 }
             } @batch_keys

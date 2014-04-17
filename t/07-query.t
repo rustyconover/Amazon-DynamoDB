@@ -47,7 +47,7 @@ ok($ddb->batch_write_item(
         $table_name => [
             map {
                 {
-                    PutRequest => $_
+                    PutRequest => { Item => $_ }
                 }
             } @put_items
         ]

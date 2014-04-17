@@ -560,11 +560,16 @@ sub batch_write_item {
                 die("Cannot have DeleteRequest and PutRequest operations on the same table");
             }
 
-            foreach my $name ('DeleteRequest', 'PutRequest') {
-                if (defined($item->{$name})) {
-                    my $key = $item->{$name}->{Key};
+            if (!(defined($item->{DeleteRequest}) || defined($item->{PutRequest}))) {
+                die("Must have either a DeleteRequest or PutRequest: " . Data::Dumper->Dump([$item]));
+            }
+
+            foreach my $t (['DeleteRequest', 'Key'], ['PutRequest', 'Item']) {
+                if (defined($item->{$t->[0]})) {
+                    my $key = $item->{$t->[0]}->{$t->[1]};
+                    defined($key) || Carp::confess("No $t->[1] defined for $t->[0]");
                     foreach my $k (keys %$key) {
-                        $r->{$name}->{Key}->{$k} = { _encode_type_and_value($key->{$k}) };
+                        $r->{$t->[0]}->{$t->[1]}->{$k} = { _encode_type_and_value($key->{$k}) };
                     }
                 }
             }

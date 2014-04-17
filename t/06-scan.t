@@ -47,7 +47,7 @@ ok($ddb->batch_write_item(
     RequestItems => {
         $table_name => [
             map {
-                { PutRequest => $_ }
+                { PutRequest => { Item => $_ } }
             } @put_items
         ]
     })->is_done, "Batch write item successfully completed with " . scalar(@put_items) . " written");
@@ -264,7 +264,7 @@ ok($ddb->batch_write_item(
     RequestItems => {
         $table_name => [
             map {
-                { PutRequest => $_ }
+                { PutRequest => { Item => $_ } }
             } @put_items
         ]
     })->is_done, "Batch write " . scalar(@put_items) . " items successfully completed");

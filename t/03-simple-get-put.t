@@ -447,10 +447,10 @@ ok($ddb->delete_item(TableName => $table_name,
         Expected => {
             name => {
                 Value => "Rusty",
-                Exists => 1,
+                Exists => 'true',
             },
             email => {
-                Exists => 0,
+                Exists => 'false'
             }
         }
     );
