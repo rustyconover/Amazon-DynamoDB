@@ -225,7 +225,7 @@ sub describe_table {
 
 =head2 delete_table
 
-Delete a table entirely.
+Delete a table.
 
 Amazon Documentation:
 
@@ -261,6 +261,8 @@ Waits for the given table to be marked as active.
 =item * WaitInterval - default wait interval in seconds.
  
 =item * DesiredStatus - status to expect before completing.  Defaults to ACTIVE
+
+=back
 
   $ddb->wait_for_table_status(TableName => $table_name);
 

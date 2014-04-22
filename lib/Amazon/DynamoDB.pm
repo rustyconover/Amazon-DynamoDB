@@ -4,8 +4,6 @@ package Amazon::DynamoDB;
 use strict;
 use warnings;
 
-our $VERSION = '0.004';
-
 =head1 NAME
 
 Amazon::DynamoDB - support for the AWS DynamoDB API
