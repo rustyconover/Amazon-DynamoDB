@@ -739,6 +739,14 @@ Amazon Documentation:
 
 L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html>
 
+Additional parameters:
+
+=over 4
+
+=item * ResultLimit - maximum number of items to return
+
+=back
+
   $ddb->query(
     sub {
          my $item = shift;
@@ -818,6 +826,14 @@ Amazon Documentation:
 
 L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Scan.html>
 
+Additional parameters:
+
+=over 4
+
+=item * ResultLimit - maximum number of items to return
+
+=back
+
   $ddb->scan(
     sub {
       my $item = shift;
@@ -831,8 +847,6 @@ L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Scan.html>
     });
 
 =cut
-
-
 
 sub scan {
     my $self = shift;
@@ -965,10 +979,13 @@ sub _scan_or_query_process {
                 
                 for my $entry (@{$data->{Items}}) {
                     $code->(_decode_item_attributes($entry));
+                    $records_seen += 1;
+                    if (defined($args->{ResultLimit}) && $records_seen >= $args->{ResultLimit}) {
+                        $finished = 1;
+                        last;
+                    }
                 }
                 $payload->{ExclusiveStartKey} = $data->{LastEvaluatedKey};
-                
-                $records_seen += $data->{Count};
                 
                 if (!defined($payload->{ExclusiveStartKey})) {
                     $finished = 1;

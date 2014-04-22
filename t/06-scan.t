@@ -11,7 +11,7 @@ use TestSettings;
 unless ( $ENV{'AMAZON_DYNAMODB_EXPENSIVE_TESTS'} ) {
     plan skip_all => 'Testing this module for real costs money.';
 } else {
-    plan tests => 36;
+    plan tests => 40;
 }
 
 my $ddb = TestSettings::get_ddb();
@@ -168,6 +168,38 @@ ok($ddb->batch_write_item(
     is(scalar(@found_items), scalar(@check_items), "Correct number of items were returned");
     is_deeply(\@found_items, \@check_items, "All items are correctly returned with IN filter");
 }
+
+
+
+{
+    my @found_items;
+    ok(
+        $ddb->scan(
+            sub {
+                my $item = shift;
+                push @found_items, $item;
+            },
+            TableName => $table_name,
+            ResultLimit => 3,
+        )->is_done, "Scan completed successfully.");
+    is(scalar(@found_items), 3, "Correct number of items were returned with limit");
+}
+
+
+{
+    my @found_items;
+    ok(
+        $ddb->scan(
+            sub {
+                my $item = shift;
+                push @found_items, $item;
+            },
+            TableName => $table_name,
+            ResultLimit => 30000,
+        )->is_done, "Scan completed successfully.");
+    is(scalar(@found_items), scalar(@put_items), "Correct number of items were returned with limit greater than the total number of records");
+}
+
 
 
 
