@@ -88,7 +88,8 @@ is_deeply($description,
                       },
                       'ProvisionedThroughput' => {
                           'ReadCapacityUnits' => 2,
-                          'WriteCapacityUnits' => 2
+                          'WriteCapacityUnits' => 2,
+                          'NumberOfDecreasesToday' => 0,
                       },
                       'IndexStatus' => 'ACTIVE'
                   }
@@ -113,7 +114,7 @@ is_deeply($description,
               'ProvisionedThroughput' => {
                   'ReadCapacityUnits' => 2,
                   'NumberOfDecreasesToday' => 0,
-                  'WriteCapacityUnits' => 2
+                  'WriteCapacityUnits' => 2,
               },
               'TableStatus' => 'ACTIVE'
           }, "Table was correctly defined and described");
