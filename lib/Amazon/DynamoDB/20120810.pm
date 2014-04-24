@@ -571,7 +571,10 @@ sub batch_write_item {
                     my $key = $item->{$t->[0]}->{$t->[1]};
                     defined($key) || Carp::confess("No $t->[1] defined for $t->[0]");
                     foreach my $k (keys %$key) {
-                        $r->{$t->[0]}->{$t->[1]}->{$k} = { _encode_type_and_value($key->{$k}) };
+                        # Don't bother encoding undefined values, same behavior as put_item
+                        if (defined($key->{$k})) {
+                            $r->{$t->[0]}->{$t->[1]}->{$k} = { _encode_type_and_value($key->{$k}) };
+                        }
                     }
                 }
             }
@@ -1110,55 +1113,58 @@ sub _process_request {
             $sleep_amount = (2 ** $current_retry * 50)/1000;
         }
 
-        $self->{implementation}->delay($sleep_amount)->then(
-            sub {
-                $self->_request($req)->transform(
-                    fail => sub {
-                        my ($status, $resp, $req)= @_;
-
-                        my $r;
-                        if (defined($resp)) {
-                            $r = $json->decode($resp->decoded_content);
-                            if ($resp->code == 500) {
+        my $complete = sub {
+            $self->_request($req)->transform(
+                fail => sub {
+                    my ($status, $resp, $req)= @_;
+                    my $r;
+                    if (defined($resp)) {
+                        $r = $json->decode($resp->decoded_content);
+                        if ($resp->code == 500) {
+                            $do_retry = 1;
+                            $current_retry++;
+                        } elsif ($resp->code == 400) {
+                            if ($r->{__type} =~ /ProvisionedThroughputExceededException$/) {
+                                # Need to sleep
                                 $do_retry = 1;
                                 $current_retry++;
-                            } elsif ($resp->code == 400) {
-                                if ($r->{__type} =~ /ProvisionedThroughputExceededException$/) {
-                                    # Need to sleep
-                                    $do_retry = 1;
-                                    $current_retry++;
                                     
-                                    if (defined($self->max_retries()) && 
-                                            $current_retry > $self->max_retries()) {
-                                        $do_retry = 0;
-                                    }
-                                    
-                                } else {
-                                    # extract the type into a better prettyier name.
-                                    if ($r->{__type} =~ /^com\.amazonaws\.dynamodb\.v20120810#(.+)$/) {
-                                        $r->{type} = $1;
-                                    }
+                                if (defined($self->max_retries()) && $current_retry > $self->max_retries()) {
+                                    $do_retry = 0;
+                                }
+                                
+                            } else {
+                                # extract the type into a better prettyier name.
+                                if ($r->{__type} =~ /^com\.amazonaws\.dynamodb\.v20120810#(.+)$/) {
+                                    $r->{type} = $1;
                                 }
                             }
                         }
+                    }
 
-                        if (!$do_retry) {
-                            if (1 || $self->debug_failures()) {
-                                print "DynamoDB Failure: $status\n";
-                                if (defined($resp)) {
-                                    print "response:\n";
-                                    print $resp->as_string() . "\n";
-                                }
-                                if (defined($req)) {
-                                    print "Request:\n";
-                                    print $req->as_string() . "\n";
-                                }
+                    if (!$do_retry) {
+                        if ($self->debug_failures()) {
+                            print "DynamoDB Failure: $status\n";
+                            if (defined($resp)) {
+                                print "response:\n";
+                                print $resp->as_string() . "\n";
                             }
-                            return $r || $status;
+                            if (defined($req)) {
+                                print "Request:\n";
+                                print $req->as_string() . "\n";
+                            }
                         }
-                    },
-                    done => $done);
-            });
+                        return $r || $status;
+                    }
+                },
+                done => $done);
+        };
+
+        if ($sleep_amount > 0) {
+            $self->{implementation}->delay($sleep_amount)->then($complete);
+        } else {
+            $complete->();
+        }
     } until => sub { !$do_retry };
 }
 
