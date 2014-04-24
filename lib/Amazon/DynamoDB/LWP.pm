@@ -50,7 +50,10 @@ Returns the L<LWP::UserAgent> instance.
 
 =cut
 
-sub ua { shift->{ua} ||= LWP::UserAgent->new(keep_alive => 1) }
+sub ua { shift->{ua} ||= LWP::UserAgent->new(keep_alive => 10,
+                                             agent => 'Amazon::DynamoDB/1.0',
+                                             timeout => 90,
+                                         ); }
 
 
 =head2 delay
