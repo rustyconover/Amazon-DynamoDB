@@ -360,6 +360,7 @@ sub put_item {
     my $req = $self->make_request(
         target => 'PutItem',
         payload => _make_payload(\%args, 
+                                 'ConditionalOperator',
                                  'Expected',
                                  'Item',
                                  'ReturnConsumedCapacity',
@@ -416,6 +417,7 @@ sub update_item {
         target => 'UpdateItem',
         payload => _make_payload(\%args, 
                                  'AttributeUpdates',
+                                 'ConditionalOperator',
                                  'Expected',
                                  'Key',
                                  'ReturnConsumedCapacity',
@@ -451,6 +453,7 @@ sub delete_item {
     my $req = $self->make_request(
         target => 'DeleteItem',
         payload => _make_payload(\%args, 
+                                 'ConditionalOperator',
                                  'Expected',
                                  'Key',
                                  'ReturnConsumedCapacity',
@@ -734,38 +737,6 @@ sub batch_get_item {
 }
 
 
-=head2 query
-
-Query a table or an index.
-
-Amazon Documentation:
-
-L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html>
-
-Additional parameters:
-
-=over 4
-
-=item * ResultLimit - maximum number of items to return
-
-=back
-
-  $ddb->query(
-    sub {
-         my $item = shift;
-    },
-    KeyConditions => {
-        user_id => {
-            ComparisonOperator => "EQ"
-            AttributeValueList => 1,
-        },
-    },
-    AttributesToGet => ["user_id"],
-    TableName => $table_name
-  );
-   
-=cut
-
 sub query {
     my $self = shift;
     my $code = shift;
@@ -780,9 +751,11 @@ sub query {
     my $payload = _make_payload(\%args,
                                 'AttributesToGet',
                                 'ConsistentRead',
+                                'ConditionalOperator',
                                 'ExclusiveStartKey',
                                 'IndexName',
                                 'Limit',
+                                'QueryFilter',
                                 'ReturnConsumedCapacity',
                                 'ScanIndexForward',
                                 'Select',
@@ -867,44 +840,12 @@ sub scan {
                                 'ExclusiveStartKey',
                                 'Limit',
                                 'ReturnConsumedCapacity',
+                                'ScanFilter',
                                 'Segment',
                                 'Select',
                                 'TableName',
                                 'TotalSegments',
                             );
-
-        
-    if (defined($args{ScanFilter})) {
-        ref($args{ScanFilter}) eq 'HASH' || Carp::confess("ScanFilter must be a hashref");
-        my $filter;
-        foreach my $field_name (keys %{$args{ScanFilter}}) {
-            my $f = $args{ScanFilter}->{$field_name};
-            my $compare_op = $f->{ComparisonOperator} // 'EQ';
-            $compare_op =~ /^(EQ|NE|LE|LT|GE|GT|NOT_NULL|NULL|CONTAINS|NOT_CONTAINS|BEGINS_WITH|IN|BETWEEN)$/ 
-                || Carp::confess("Unknown comparison operator specified: $compare_op");
-                
-            my $value_list = $f->{AttributeValueList};
-            if ($compare_op =~ /^(EQ|NE|LE|LT|GE|GT|CONTAINS|NOT_CONTAINS|BEGINS_WITH)$/) {
-                defined($value_list) || Carp::confess("No defined value for comparison operator: $compare_op");
-                $value_list = [ { _encode_type_and_value($value_list) } ];
-            } elsif ($compare_op eq 'IN') {
-                if (!ref($value_list)) {
-                    $value_list = [$value_list];
-                }
-                $value_list = [ map { { _encode_type_and_value($_) } } @$value_list];
-            } elsif ($compare_op eq 'BETWEEN') {
-                ref($value_list) eq 'ARRAY' || Carp::confess("Use of BETWEEN comparision operator requires an array");
-                scalar(@$value_list) == 2 || Carp::confess("BETWEEN comparison operator requires two values");
-                $value_list = [ map { { _encode_type_and_value($_) } } @$value_list];
-            }
-            $filter->{$field_name} = {
-                ComparisonOperator => $compare_op,
-                (defined($value_list) ? (AttributeValueList => $value_list) : ()),
-            };
-        }
-            
-        $payload->{ScanFilter} = $filter;
-    }
 
     $self->_scan_or_query_process('Scan', $payload, $code, \%args);
 }
@@ -1181,6 +1122,39 @@ my $encode_key = sub {
     return $r;
 };
 
+my $encode_filter = sub {
+    my $source = shift;
+
+    my $r;
+
+    foreach my $field_name (keys %$source) {
+        my $f = $source->{$field_name};
+        my $compare_op = $f->{ComparisonOperator} // 'EQ';
+        $compare_op =~ /^(EQ|NE|LE|LT|GE|GT|NOT_NULL|NULL|CONTAINS|NOT_CONTAINS|BEGINS_WITH|IN|BETWEEN)$/ 
+            || Carp::confess("Unknown comparison operator specified: $compare_op");
+        
+        my $value_list = $f->{AttributeValueList};
+        if ($compare_op =~ /^(EQ|NE|LE|LT|GE|GT|CONTAINS|NOT_CONTAINS|BEGINS_WITH)$/) {
+            defined($value_list) || Carp::confess("No defined value for comparison operator: $compare_op");
+            $value_list = [ { _encode_type_and_value($value_list) } ];
+        } elsif ($compare_op eq 'IN') {
+            if (!ref($value_list)) {
+                $value_list = [$value_list];
+            }
+            $value_list = [ map { { _encode_type_and_value($_) } } @$value_list];
+        } elsif ($compare_op eq 'BETWEEN') {
+            ref($value_list) eq 'ARRAY' || Carp::confess("Use of BETWEEN comparision operator requires an array");
+            scalar(@$value_list) == 2 || Carp::confess("BETWEEN comparison operator requires two values");
+            $value_list = [ map { { _encode_type_and_value($_) } } @$value_list];
+        }
+        $r->{$field_name} = {
+            ComparisonOperator => $compare_op,
+            (defined($value_list) ? (AttributeValueList => $value_list) : ()),
+        };
+    }
+    return $r;
+};
+
 my $parameter_type_definitions = {
     AttributesToGet => {
         source_type => 'ARRAY',
@@ -1201,6 +1175,10 @@ my $parameter_type_definitions = {
     },
     # should be a boolean
     ConsistentRead => {},
+    ConditionalOperator => {
+        allowed_values => ['AND', 'OR'],
+        defined_default => 'AND',
+    },
     # should be a positive integer.
     # should be a string.
     ExclusiveStartKey => {
@@ -1218,6 +1196,10 @@ my $parameter_type_definitions = {
 
                 if (defined($info->{Exists})) {
                     $r->{$key}->{Exists} = $info->{Exists};
+                }
+
+                if (defined($info->{ComparisonOperator})) {
+                    $r->{$key}->{ComparisonOperator} = $info->{ComparisonOperator};
                 }
                 
                 if (defined($info->{Value})) {
@@ -1241,6 +1223,10 @@ my $parameter_type_definitions = {
     Limit => {
         type_check => 'integer',
     },
+    QueryFilter => {
+        source_type => 'HASH',
+        encode => $encode_filter,
+    },
     ReturnConsumedCapacity => {
         allowed_values => ['INDEXES', 'TOTAL', 'NONE'],
         defined_default => 'NONE',
@@ -1254,6 +1240,10 @@ my $parameter_type_definitions = {
         defined_default => 'NONE',
     },
     ScanIndexForward => {},
+    ScanFilter => {
+        source_type => 'HASH',
+        encode => $encode_filter,
+    },
     Segment => {
         type_check => 'integer',
     },
