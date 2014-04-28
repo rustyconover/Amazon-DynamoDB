@@ -1177,7 +1177,6 @@ my $parameter_type_definitions = {
     ConsistentRead => {},
     ConditionalOperator => {
         allowed_values => ['AND', 'OR'],
-        defined_default => 'AND',
     },
     # should be a positive integer.
     # should be a string.
@@ -1229,15 +1228,12 @@ my $parameter_type_definitions = {
     },
     ReturnConsumedCapacity => {
         allowed_values => ['INDEXES', 'TOTAL', 'NONE'],
-        defined_default => 'NONE',
     },
     ReturnItemCollectionMetrics => {
         allowed_values => ['NONE', 'SIZE'],
-        defined_default => 'NONE',
     },
     ReturnValues => {
         allowed_values => ['NONE', 'ALL_OLD', 'UPDATED_OLD', 'ALL_NEW', 'UPDATED_NEW'],
-        defined_default => 'NONE',
     },
     ScanIndexForward => {},
     ScanFilter => {
