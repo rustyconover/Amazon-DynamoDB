@@ -9,7 +9,7 @@ use TestSettings;
 unless ( $ENV{'AMAZON_DYNAMODB_EXPENSIVE_TESTS'} ) {
     plan skip_all => 'Testing this module for real costs money.';
 } else {
-    plan tests => 4815;
+    plan tests => 4869;
 }
 
 
@@ -81,9 +81,33 @@ for (my $i = 0; $i <= $batch_size; $i++) {
                   )->is_done, "Saved test item - " . $i . " of $batch_size");
 }
 
+my $limited_keys_seen = 0;
+ok($ddb->batch_get_item(
+    sub {
+        my ($table, $item) = @_;
+        is($table, $table_name, "Table name matches for batch get");
+        ok($item->{user_id} =~ /^\d+$/, "Key name is an integer");
+        is_deeply($item->{test_numbers}, [820, 1980], "Number array is correct");
+        is($item->{name}, "Test User - " . $item->{user_id}, "User id matches");
+        $limited_keys_seen++;
+    },
+    ResultLimit => 13,
+    RequestItems => {
+        $table_name => {
+
+            Keys => [
+                map {
+                    {
+                        user_id => $_
+                    } 
+                } @all_keys,
+            ],
+        }
+    })->is_done, "Batch get was successfully completed");
+
+is($limited_keys_seen, 13, "ResultLimit worked for 13 keys");
 
 my %remaining_keys = map { $_ => 1 } @all_keys;
-
 
 ok($ddb->batch_get_item(
     sub {
@@ -108,5 +132,6 @@ ok($ddb->batch_get_item(
     })->is_done, "Batch get was successfully completed");
 
 is(scalar(keys %remaining_keys), 0, "No keys are left remaining to be retrieved.");
+
 
 ok($ddb->delete_table(TableName => $table_name)->is_done, "Successfully deleted table named $table_name");

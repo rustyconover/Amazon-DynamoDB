@@ -632,12 +632,19 @@ sub batch_write_item {
 
 Retrieve a batch of items from one or more tables.
 
-Takes a coderef which will be called for each found item, followed by
-these named parameters:
+Takes a coderef which will be called for each found item.
 
 Amazon Documentation:
 
 L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_BatchGetItem.html>
+
+Additional Parameters:
+
+=over
+
+=item * ResultLimit - limit on the total number of results to return.
+
+=back
 
   $ddb->batch_get_item(
     sub {
@@ -687,6 +694,7 @@ sub batch_get_item {
         }
     }
 
+    my $records_seen =0;
     try_repeat {
 
         my %payload = (
@@ -721,6 +729,11 @@ sub batch_get_item {
                 foreach my $table_name (keys %{$data->{Responses}}) {
                     foreach my $item (@{$data->{Responses}->{$table_name}}) {
                         $code->($table_name, _decode_item_attributes($item));
+                        $records_seen += 1;
+                        if (defined($args{ResultLimit}) && $records_seen >= $args{ResultLimit}) {
+                            @all_requests = ();
+                            return $data;
+                        }
                     }
                 }
                     
