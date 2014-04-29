@@ -81,12 +81,3 @@ sub delay {
 
 1;
 
-=head1 AUTHOR
-
-Tom Molesworth <cpan@entitymodel.com>
-Rusty Conover <rusty@luckydinosaur.com>
-
-=head1 LICENSE
-
-Copyright Tom Molesworth 2012-2013. Licensed under the same terms as Perl itself.
-Copyright 2014 Lucky Dinosaur, LLC.

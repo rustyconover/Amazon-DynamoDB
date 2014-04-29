@@ -730,7 +730,7 @@ sub batch_get_item {
                     foreach my $item (@{$data->{Responses}->{$table_name}}) {
                         $code->($table_name, _decode_item_attributes($item));
                         $records_seen += 1;
-                        if (defined($args{ResultLimit}) && $records_seen >= $args{ResultLimit}) {
+                        if (defined($args{ResultLimit}) &&$records_seen >= $args{ResultLimit}) {
                             @all_requests = ();
                             return $data;
                         }
@@ -1351,15 +1351,3 @@ sub _create_key_schema {
 
 __END__
 
-=head1 AUTHOR
-
-Rusty Conover <rusty@luckydinosaur.com>
-
-Based on code by:
-
-Tom Molesworth <cpan@entitymodel.com>
-
-=head1 LICENSE
-
-Copyright Tom Molesworth 2013. Licensed under the same terms as Perl itself.
-Copyright 2014 Rusty Conover, Lucky Dinosaur, LLC.  Licensed under the same terms as Perl itself.

@@ -112,16 +112,3 @@ L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Operations.h
 
 For examples see the test cases, most functionality is well exercised
 via tests.
-
-=head1 AUTHOR
-
-Rusty Conover <rusty@luckydinosaur.com>
-
-Based on code by:
-
-Tom Molesworth <cpan@entitymodel.com>
-
-=head1 LICENSE
-
-Copyright 2014 Lucky Dinosaur, LLC. Licensed under the same terms as Perl itself.
-Copyright Tom Molesworth 2013. Licensed under the same terms as Perl itself.

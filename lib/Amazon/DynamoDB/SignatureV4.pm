@@ -341,16 +341,3 @@ sub signed_request {
 
 __END__
 
-=head1 AUTHOR
-
-Tom Molesworth <cpan@entitymodel.com>
-
-wrote L<WebService::Amazon::Signature::v4>
-
-Rusty Conover <rusty@luckydinosaur.com> contributed some bug fixes and placed
-it inside of Amazon::DynamoDB.
-
-=head1 LICENSE
-
-Copyright Tom Molesworth 2012-2013. Licensed under the same terms as Perl itself.
-Copyright Lucky Dinosaur LLC.
