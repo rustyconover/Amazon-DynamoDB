@@ -10,7 +10,7 @@ use Data::Dumper;
 unless ( $ENV{'AMAZON_DYNAMODB_EXPENSIVE_TESTS'} ) {
     plan skip_all => 'Testing this module for real costs money.';
 } else {
-    plan tests => 80;
+    plan tests => 84;
 }
 
 my $ddb = TestSettings::get_ddb();
@@ -413,6 +413,57 @@ ok($ddb->delete_item(TableName => $table_name,
 
     is($update->failure()->{type}, "ConditionalCheckFailedException", "update_item failed with ConditionalCheckFailedException exception as expected");
 }
+
+
+{
+    my $update = $ddb->update_item(
+        TableName => $table_name,
+        Key => {
+            user_id => 3,
+        },
+        AttributeUpdates => {
+            name => {
+                Action => 'PUT',
+                Value => "R2D2",
+            },
+        },
+        Expected => {
+            name => {
+                ComparisonOperator => 'EQ',
+                AttributeValueList => 'Fred',
+            },
+        }
+    );
+    ok(!$update->is_done, "update_item was failed");
+
+    is($update->failure()->{type}, "ConditionalCheckFailedException", "update_item failed with ConditionalCheckFailedException exception as expected when using comparison operator EQ");
+}
+
+
+{
+    my $update = $ddb->update_item(
+        TableName => $table_name,
+        Key => {
+            user_id => 3,
+        },
+        AttributeUpdates => {
+            name => {
+                Action => 'PUT',
+                Value => "R2D2",
+            },
+        },
+        Expected => {
+            name => {
+                ComparisonOperator => 'IN',
+                AttributeValueList => ['Fred'],
+            },
+        }
+    );
+    ok(!$update->is_done, "update_item was failed");
+
+    is($update->failure()->{type}, "ConditionalCheckFailedException", "update_item failed with ConditionalCheckFailedException exception as expected when using comparison operator IN");
+}
+
 
 
 {

@@ -784,19 +784,8 @@ sub query {
         $compare_op =~ /^(EQ|LE|LT|GE|GT|BEGINS_WITH|BETWEEN)$/
             || Carp::confess("Unknown comparison operator specified: $compare_op");
         
-        my $value_list;
-        my $value = $key_details->{AttributeValueList};
-        
-        if ($compare_op =~ /^(EQ|LE|LT|GE|GT|BEGINS_WITH)$/) {
-            $value_list = [ { _encode_type_and_value($value) } ];
-        } elsif ($compare_op eq 'BETWEEN') {
-            ref($value) eq 'ARRAY' || Carp::confess("Use of BETWEEN comparision operator requires an array");
-            scalar(@{$value}) == 2 || Carp::confess("BETWEEN comparison operator requires two values");
-            $value_list = [ map { { _encode_type_and_value($_) } } @{$value}];
-        }
-        
         $payload->{KeyConditions}->{$key_name} = {
-            AttributeValueList => $value_list,
+            AttributeValueList => _encode_attribute_value_list($key_details->{AttributeValueList}, $compare_op),
             ComparisonOperator => $compare_op
         };
     }
@@ -1135,6 +1124,27 @@ my $encode_key = sub {
     return $r;
 };
 
+
+sub _encode_attribute_value_list {
+    my $value_list = shift;
+    my $compare_op = shift;
+
+    if ($compare_op =~ /^(EQ|NE|LE|LT|GE|GT|CONTAINS|NOT_CONTAINS|BEGINS_WITH)$/) {
+        defined($value_list) || Carp::confess("No defined value for comparison operator: $compare_op");
+        $value_list = [ { _encode_type_and_value($value_list) } ];
+    } elsif ($compare_op eq 'IN') {
+        if (!ref($value_list)) {
+            $value_list = [$value_list];
+        }
+        $value_list = [ map { { _encode_type_and_value($_) } } @$value_list];
+    } elsif ($compare_op eq 'BETWEEN') {
+        ref($value_list) eq 'ARRAY' || Carp::confess("Use of BETWEEN comparision operator requires an array");
+        scalar(@$value_list) == 2 || Carp::confess("BETWEEN comparison operator requires two values");
+        $value_list = [ map { { _encode_type_and_value($_) } } @$value_list];
+    }
+    return $value_list;
+}
+
 my $encode_filter = sub {
     my $source = shift;
 
@@ -1146,23 +1156,9 @@ my $encode_filter = sub {
         $compare_op =~ /^(EQ|NE|LE|LT|GE|GT|NOT_NULL|NULL|CONTAINS|NOT_CONTAINS|BEGINS_WITH|IN|BETWEEN)$/ 
             || Carp::confess("Unknown comparison operator specified: $compare_op");
         
-        my $value_list = $f->{AttributeValueList};
-        if ($compare_op =~ /^(EQ|NE|LE|LT|GE|GT|CONTAINS|NOT_CONTAINS|BEGINS_WITH)$/) {
-            defined($value_list) || Carp::confess("No defined value for comparison operator: $compare_op");
-            $value_list = [ { _encode_type_and_value($value_list) } ];
-        } elsif ($compare_op eq 'IN') {
-            if (!ref($value_list)) {
-                $value_list = [$value_list];
-            }
-            $value_list = [ map { { _encode_type_and_value($_) } } @$value_list];
-        } elsif ($compare_op eq 'BETWEEN') {
-            ref($value_list) eq 'ARRAY' || Carp::confess("Use of BETWEEN comparision operator requires an array");
-            scalar(@$value_list) == 2 || Carp::confess("BETWEEN comparison operator requires two values");
-            $value_list = [ map { { _encode_type_and_value($_) } } @$value_list];
-        }
         $r->{$field_name} = {
             ComparisonOperator => $compare_op,
-            (defined($value_list) ? (AttributeValueList => $value_list) : ()),
+            (defined($f->{AttributeValueList}) ? (AttributeValueList => _encode_attribute_value_list($f->{AttributeValueList}, $compare_op)) : ())
         };
     }
     return $r;
@@ -1191,8 +1187,6 @@ my $parameter_type_definitions = {
     ConditionalOperator => {
         allowed_values => ['AND', 'OR'],
     },
-    # should be a positive integer.
-    # should be a string.
     ExclusiveStartKey => {
         source_type => 'HASH',
         encode => $encode_key,
@@ -1205,6 +1199,10 @@ my $parameter_type_definitions = {
             my $r;
             foreach my $key (keys %$source) {
                 my $info = $source->{$key};
+
+                if (defined($info->{AttributeValueList}) ) {
+                    $r->{$key}->{AttributeValueList} = _encode_attribute_value_list($info->{AttributeValueList}, $info->{ComparisonOperator});
+                }
 
                 if (defined($info->{Exists})) {
                     $r->{$key}->{Exists} = $info->{Exists};
