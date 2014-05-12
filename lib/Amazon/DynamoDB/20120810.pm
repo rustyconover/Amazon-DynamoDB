@@ -780,6 +780,7 @@ sub query {
 
     foreach my $key_name (keys %{$args{KeyConditions}}) {
         my $key_details = $args{KeyConditions}->{$key_name};
+        ref($key_details) eq 'HASH' || Carp::confess("KeyConditions for key $key_name are not a hashref");
         my $compare_op = $key_details->{ComparisonOperator} // 'EQ';
         $compare_op =~ /^(EQ|LE|LT|GE|GT|BEGINS_WITH|BETWEEN)$/
             || Carp::confess("Unknown comparison operator specified: $compare_op");
@@ -1116,9 +1117,12 @@ my $encode_key = sub {
     my $r;
     foreach my $k (keys %$source) {
         my $v = $source->{$k};	
-        # There is no sense in encoding undefined values.
-        if (defined($v)) {
-            $r->{$k} = { _encode_type_and_value($v) };
+        # There is no sense in encoding undefined values or values that 
+        # are the empty string.
+        if (defined($v) && $v ne '') {
+            # Reference $source->{$k} since the earlier test may cause
+            # the value to be stringified.
+            $r->{$k} = { _encode_type_and_value($source->{$k}) };
         }
     }
     return $r;
