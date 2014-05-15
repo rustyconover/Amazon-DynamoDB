@@ -7,7 +7,6 @@ use TestSettings;
 use String::Random;
 use Data::Dumper;
 use JSON::XS;
-use File::Slurp;
 
 
 unless ( $ENV{'AMAZON_DYNAMODB_EXPENSIVE_TESTS'} ) {
@@ -23,8 +22,18 @@ my $source_data_filename = 'presidents.json';
 if (-r "./t/presidents.json") {
     $source_data_filename = "./t/presidents.json";
 }
-ok(-r $source_data_filename, "Can open presidents.json");
-my $presidents_data = JSON::XS::decode_json(File::Slurp::read_file($source_data_filename));
+ok(-r $source_data_filename, "Can open $source_data_filename");
+
+my $fh;
+open($fh, "<$source_data_filename") || die("Failed to open $source_data_filename");
+my $presidents_data;
+{
+    local $/ = undef;
+    $presidents_data = <$fh>;
+}
+close($fh);
+
+$presidents_data = JSON::XS::decode_json($presidents_data);
 ok(defined($presidents_data), "presidents.json was successfully read");
 
 
