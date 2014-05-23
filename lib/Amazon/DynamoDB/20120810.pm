@@ -1063,11 +1063,11 @@ sub _process_request {
                     my ($status, $resp, $req)= @_;
                     my $r;
                     if (defined($resp)) {
-                        $r = $json->decode($resp->decoded_content);
                         if ($resp->code == 500) {
                             $do_retry = 1;
                             $current_retry++;
                         } elsif ($resp->code == 400) {
+                            $r = $json->decode($resp->decoded_content);
                             if ($r->{__type} =~ /ProvisionedThroughputExceededException$/) {
                                 # Need to sleep
                                 $do_retry = 1;
