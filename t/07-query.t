@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib ('lib', './t');
-use Test::More;
+use Test::Most;
 use Test::Differences;
 use List::MoreUtils;
 use Data::Dumper;
@@ -13,6 +13,8 @@ unless ( $ENV{'AMAZON_DYNAMODB_EXPENSIVE_TESTS'} ) {
 } else {
     plan tests => 10;
 }
+
+bail_on_fail;
 
 my $ddb = TestSettings::get_ddb();
 my $table_name = TestSettings::random_table_name();
@@ -55,7 +57,8 @@ ok($ddb->batch_write_item(
 
 
 {
-    my $query = $ddb->query(TableName => $table_name,
+    my $query = $ddb->query(sub {},
+                            TableName => $table_name,
                             Select => 'COUNT',
                             KeyConditions => {
                                 user_id => {

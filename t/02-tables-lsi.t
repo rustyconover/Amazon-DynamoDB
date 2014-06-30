@@ -45,10 +45,6 @@ my $create = $ddb->create_table(TableName => $table_name,
                                         Projection => {
                                             ProjectionType => 'KEYS_ONLY',
                                         },
-                                        ProvisionedThroughput => {
-                                            ReadCapacityUnits => 2,
-                                            WriteCapacityUnits => 2,
-                                        }
                                     }
                                 ]
                             );

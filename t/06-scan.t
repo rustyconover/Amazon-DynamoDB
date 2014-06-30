@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib ('lib', './t');
-use Test::More;
+use Test::Most;
 use Test::Differences;
 use List::MoreUtils;
 use Data::Dumper;
@@ -13,6 +13,8 @@ unless ( $ENV{'AMAZON_DYNAMODB_EXPENSIVE_TESTS'} ) {
 } else {
     plan tests => 40;
 }
+
+bail_on_fail;
 
 my $ddb = TestSettings::get_ddb();
 my $table_name = TestSettings::random_table_name();
@@ -54,7 +56,8 @@ ok($ddb->batch_write_item(
 
 
 {
-    my $scan_future = $ddb->scan(TableName => $table_name,
+    my $scan_future = $ddb->scan(sub {},
+                                 TableName => $table_name,
                                  Select => 'COUNT',
                              );
     ok($scan_future->is_done, "Scan for count completed");
@@ -65,7 +68,8 @@ ok($ddb->batch_write_item(
 
 {
     my @should_find = grep { $_->{user_id} > 5 } @put_items;
-    my $scan_future = $ddb->scan(TableName => $table_name,
+    my $scan_future = $ddb->scan(sub {},
+                                 TableName => $table_name,
                                  Select => 'COUNT',
                                  ScanFilter => {
                                      user_id => {

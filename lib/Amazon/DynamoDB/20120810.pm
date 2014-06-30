@@ -20,8 +20,17 @@ use List::Util;
 use List::MoreUtils;
 use B qw(svref_2object);
 use HTTP::Request;
-
+use Kavorka;
 use Amazon::DynamoDB::SignatureV4;
+use Amazon::DynamoDB::Types;
+use Type::Registry;
+   
+BEGIN {
+    my $reg = "Type::Registry"->for_me; 
+    $reg->add_types(-Standard);
+    $reg->add_types("Amazon::DynamoDB::Types");
+};
+
 
 my $json = JSON::XS->new;
 
@@ -115,73 +124,57 @@ L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.
 
 =cut
 
-sub create_table {
-    my $self = shift;
-    my %args = @_;
-
-    $args{ReadCapacityUnits} //= 2;
-    $args{WriteCapacityUnits} //= 2;
-
+method create_table(TableNameType :$TableName!,
+                    Int :$ReadCapacityUnits = 2, 
+                    Int :$WriteCapacityUnits = 2,
+                    AttributeDefinitionsType :$AttributeDefinitions,
+                    KeySchemaType :$KeySchema!,
+                    ArrayRef[GlobalSecondaryIndexType] :$GlobalSecondaryIndexes where { scalar(@$_) <= 5 },
+                    ArrayRef[LocalSecondaryIndexType] :$LocalSecondaryIndexes
+                ) {
     my %payload = (
-        TableName => $args{TableName},
+        TableName => $TableName,
         ProvisionedThroughput => {
-            ReadCapacityUnits => $args{ReadCapacityUnits},
-            WriteCapacityUnits => $args{WriteCapacityUnits},
+            ReadCapacityUnits => int($ReadCapacityUnits),
+            WriteCapacityUnits => int($WriteCapacityUnits),
         }
     );
 
-    if (defined($args{AttributeDefinitions})) {
-        ref($args{AttributeDefinitions}) eq 'HASH' || Carp::confess("AttributeDefinitions should be a hash, each field is unique");
-        foreach my $field_name (keys %{$args{AttributeDefinitions}}) {
-            my $type = $args{AttributeDefinitions}->{$field_name};
+    if (defined($AttributeDefinitions)) {
+        foreach my $field_name (keys %$AttributeDefinitions) {
+            my $type = $AttributeDefinitions->{$field_name};
 
-            if (defined($type)) {
-                $type =~ /^(S|N|B)$/ || Carp::confess("Invalid type specified for attribute '$field_name', must be S, N or B was $type");
-            }
             push @{$payload{AttributeDefinitions}}, {
                 AttributeName => $field_name,
                 AttributeType => $type // 'S',
             }
         }
     }
-    
-    defined($args{KeySchema}) || Carp::confess("No KeySchema specified");
-    ref($args{KeySchema}) eq 'ARRAY' || Carp::confess("KeySchema is not an array");
-    scalar(@{$args{KeySchema}}) > 0 || Carp::confess("KeySchema requires at least one value");
-    scalar(@{$args{KeySchema}}) <= 2 || Carp::confess("KeySchema can have at most two values");
 
-    $payload{KeySchema} = _create_key_schema($args{KeySchema}, $args{AttributeDefinitions});
+    $payload{KeySchema} = _create_key_schema($KeySchema, $AttributeDefinitions);
 
-    foreach my $index_type ('GlobalSecondaryIndexes', 'LocalSecondaryIndexes') {
+    foreach my $index_record (['GlobalSecondaryIndexes', $GlobalSecondaryIndexes], 
+                              ['LocalSecondaryIndexes', $LocalSecondaryIndexes]) {
+        my $index_type = $index_record->[0];
+        my $index = $index_record->[1];
         
-        if (defined($args{$index_type})) {
-            ref($args{$index_type}) eq 'ARRAY' || Carp::confess("global_secondary_indexes is not an array");
-            scalar(@{$args{$index_type}}) <= 5 || Carp::confess("Too many global secondary indexes specified, must be less than or equal to 5");
-
-            foreach my $i (@{$args{$index_type}}) {
-                defined($i->{IndexName}) || Carp::confess("No name specified in $index_type: " . Data::Dumper->Dump([$i]));
+        if (defined($index)) {
+            foreach my $i (@$index) {
                 my $r = {
                     IndexName => $i->{IndexName},
                     (($index_type eq 'GlobalSecondaryIndexes') ? 
                          (ProvisionedThroughput => {
-                             ReadCapacityUnits => $i->{ProvisionedThroughput}->{ReadCapacityUnits} // 1,
-                             WriteCapacityUnits => $i->{ProvisionedThroughput}->{WriteCapacityUnits} // 1,
+                             ReadCapacityUnits => int($i->{ProvisionedThroughput}->{ReadCapacityUnits} // 1),
+                             WriteCapacityUnits => int($i->{ProvisionedThroughput}->{WriteCapacityUnits} // 1),
                          }) : ()),
-                    KeySchema => _create_key_schema($i->{KeySchema}, $args{AttributeDefinitions}),
+                    KeySchema => _create_key_schema($i->{KeySchema}, $AttributeDefinitions),
                 };
 
-                defined($i->{Projection}) || Carp::confess("No projection defined for index named $i->{IndexName}");
-
                 my $type = $i->{Projection}->{ProjectionType};
-                defined($type) || Carp::confess("Missing type for projection for index named $i->{IndexName}");
-                $type =~ /^(KEYS_ONLY|INCLUDE|ALL)$/ || Carp::confess("Unknown projection type specified: $type for index named $i->{IndexName}");
-                
                 $r->{Projection}->{ProjectionType} = $type;
                 
                 if (defined($i->{Projection}->{NonKeyAttributes})) {
                     my $attrs = $i->{Projection}->{NonKeyAttributes};
-                    defined($attrs) || Carp::confess("No non key attributes specified");
-                    ref($attrs) eq 'ARRAY' || Carp::confess("NonKeyAttributes is not an array");
                     # Can't validate these attribute names since they aren't part of the key.
                     $r->{Projection}->{NonKeyAttributes} = $attrs;
                 }
@@ -209,13 +202,12 @@ L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_DescribeTabl
 
 =cut
 
-sub describe_table {
-    my $self = shift;
-    my %args = @_;
+method describe_table(TableNameType :$TableName!) {
     my $req = $self->make_request(
         target => 'DescribeTable',
-        payload => _make_payload(\%args,
-                                 'TableName'));
+        payload => _make_payload({
+            TableName => $TableName
+        }));
     $self->_process_request($req,
                             sub { 
                                 my $content = shift; 
@@ -235,14 +227,10 @@ L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_DeleteTable.
 
 =cut
 
-sub delete_table {
-    my $self = shift;
-    my %args = @_;
-
+method delete_table(TableNameType :$TableName!) {
     my $req = $self->make_request(
         target => 'DeleteTable',
-        payload => _make_payload(\%args,
-                                 'TableName'));
+        payload => _make_payload({ TableName => $TableName }));
     $self->_process_request($req,
                             sub {
                                 my $content = shift;
@@ -268,22 +256,20 @@ Waits for the given table to be marked as active.
 
 =cut
 
-sub wait_for_table_status {
-    my $self = shift;
-    my %args = @_;
-    
-    defined($args{TableName}) || Carp::confess("No TableName specified");
+method wait_for_table_status(TableNameType :$TableName!,
+                             Int :$WaitInterval = 2,
+                             TableStatusType :$DesiredStatus = "ACTIVE") {
     repeat {
         my $retry = shift;
         
-        $self->{implementation}->delay($retry ? ($args{WaitInterval} || 2) : 0)
+        $self->{implementation}->delay($retry ? $WaitInterval : 0)
             ->then(sub {
-                       $self->describe_table(%args) 
+                       $self->describe_table(TableName => $TableName) 
                    });
     } until => sub {
         my $f = shift;
         my $status = $f->get->{TableStatus};
-        $status eq ($args{DesiredStatus} // 'ACTIVE')
+        $status eq $DesiredStatus
     };
 }
 
@@ -307,20 +293,18 @@ L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ListTables.h
 
 =cut
 
-sub each_table {
-    my $self = shift;
-    my $code = shift;
-    defined($code) || Carp::confess("No callback passed to call for each table");
-    ref($code) eq 'CODE' || Carp::confess("Callback is not a code reference");
-    my %args = @_;
-
+method each_table(CodeRef $code,
+                  TableNameType :$ExclusiveStartTableName,
+                  Int :$Limit where { $_ >= 0 && $_ <= 100}
+              ) {
     my $finished = 0;
     try_repeat {
         my $req = $self->make_request(
             target => 'ListTables',
-            payload => _make_payload(\%args,
-                                     'ExclusiveStartTableName',
-                                     'Limit'));
+            payload => _make_payload({ 
+                ExclusiveStartTableName => $ExclusiveStartTableName,
+                Limit => $Limit
+            }));
         $self->_process_request($req,
                                 sub {
                                     my $result = shift;
@@ -328,8 +312,8 @@ sub each_table {
                                     for my $tbl (@{$data->{TableNames}}) {
                                         $code->($tbl);
                                     }
-                                    $args{ExclusiveStartTableName} = $data->{LastEvaluatedTableName};
-                                    if (!defined($args{ExclusiveStartTableName})) {
+                                    $ExclusiveStartTableName = $data->{LastEvaluatedTableName};
+                                    if (!defined($ExclusiveStartTableName)) {
                                         $finished = 1 
                                     }
                                 });
@@ -353,20 +337,24 @@ L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_PutItem.html
 
 =cut
 
-sub put_item {
-    my $self = shift;
-    my %args = @_;
-
+method put_item (ItemType :$Item!,
+                 ExpectedType :$Expected,
+                 ConditionalOperatorType :$ConditionalOperator,
+                 ReturnConsumedCapacityType :$ReturnConsumedCapacity,
+                 ReturnItemCollectionMetricsType :$ReturnItemCollectionMetrics,
+                 ReturnValuesType :$ReturnValues,
+                 TableNameType :$TableName!) {
     my $req = $self->make_request(
         target => 'PutItem',
-        payload => _make_payload(\%args, 
-                                 'ConditionalOperator',
-                                 'Expected',
-                                 'Item',
-                                 'ReturnConsumedCapacity',
-                                 'ReturnItemCollectionMetrics',
-                                 'ReturnValues',
-                                 'TableName'));
+        payload => _make_payload({
+            'ConditionalOperator' => $ConditionalOperator,
+            'Expected' => $Expected,
+            'Item' => $Item,
+            'ReturnConsumedCapacity' => $ReturnConsumedCapacity,
+            'ReturnItemCollectionMetrics' => $ReturnItemCollectionMetrics,
+            'ReturnValues' => $ReturnValues,
+            'TableName' => $TableName
+        }));
                              
     $self->_process_request($req, \&_decode_single_item_change_response);
 }
@@ -409,22 +397,26 @@ L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateItem.h
 
 =cut
 
-sub update_item {
-    my $self = shift;
-    my %args = @_;
-
+method update_item (AttributeUpdatesType :$AttributeUpdates!,
+                    ConditionalOperatorType :$ConditionalOperator,
+                    ExpectedType :$Expected,
+                    KeyType :$Key!,
+                    ReturnConsumedCapacityType :$ReturnConsumedCapacity,
+                    ReturnItemCollectionMetricsType :$ReturnItemCollectionMetrics,
+                    ReturnValuesType :$ReturnValues,
+                    TableNameType :$TableName!) {
     my $req = $self->make_request(
         target => 'UpdateItem',
-        payload => _make_payload(\%args, 
-                                 'AttributeUpdates',
-                                 'ConditionalOperator',
-                                 'Expected',
-                                 'Key',
-                                 'ReturnConsumedCapacity',
-                                 'ReturnItemCollectionMetrics',
-                                 'ReturnValues',
-                                 'TableName'));
-
+        payload => _make_payload({
+                                 'AttributeUpdates' => $AttributeUpdates,
+                                 'ConditionalOperator' => $ConditionalOperator,
+                                 'Expected' => $Expected,
+                                 'Key' => $Key,
+                                 'ReturnConsumedCapacity' => $ReturnConsumedCapacity,
+                                 'ReturnItemCollectionMetrics' => $ReturnItemCollectionMetrics,
+                                 'ReturnValues' => $ReturnValues,
+                                 'TableName' => $TableName
+                                 }));
     $self->_process_request($req, \&_decode_single_item_change_response);
 }
 
@@ -446,20 +438,24 @@ L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_DeleteItem.h
 
 
 
-sub delete_item {
-    my $self = shift;
-    my %args = @_;
-    
+method delete_item(ConditionalOperatorType :$ConditionalOperator,
+                   ExpectedType :$Expected,
+                   KeyType :$Key!,
+                   ReturnConsumedCapacityType :$ReturnConsumedCapacity,
+                   ReturnItemCollectionMetricsType :$ReturnItemCollectionMetrics,
+                   ReturnValuesType :$ReturnValues,
+                   TableNameType :$TableName!) {
     my $req = $self->make_request(
         target => 'DeleteItem',
-        payload => _make_payload(\%args, 
-                                 'ConditionalOperator',
-                                 'Expected',
-                                 'Key',
-                                 'ReturnConsumedCapacity',
-                                 'ReturnItemCollectionMetrics',
-                                 'ReturnValues',
-                                 'TableName'));
+        payload => _make_payload({
+                                 'ConditionalOperator' => $ConditionalOperator,
+                                 'Expected' => $Expected,
+                                 'Key' => $Key,
+                                 'ReturnConsumedCapacity' => $ReturnConsumedCapacity,
+                                 'ReturnItemCollectionMetrics' => $ReturnItemCollectionMetrics,
+                                 'ReturnValues' => $ReturnValues,
+                                 'TableName' => $TableName
+                                 }));
             
     $self->_process_request($req, \&_decode_single_item_change_response);
 }
@@ -486,20 +482,22 @@ L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_GetItem.html
 
 =cut
 
-sub get_item {
-    my $self = shift;
-    my $code = shift;
-    my %args = @_;
-
+method get_item(CodeRef $code,
+                AttributesToGetType :$AttributesToGet,
+                StringBooleanType :$ConsistentRead,
+                KeyType :$Key!,
+                ReturnConsumedCapacityType :$ReturnConsumedCapacity,
+                TableNameType :$TableName!) {
     my $req = $self->make_request(
         target => 'GetItem',
-        payload => _make_payload(\%args, 
-                                 'AttributesToGet',
-                                 'ConsistentRead',
-                                 'Key',
-                                 'ReturnConsumedCapacity',
-                                 'TableName'));
-
+        payload => _make_payload({
+                                 'AttributesToGet' => $AttributesToGet,
+                                 'ConsistentRead' => $ConsistentRead,
+                                 'Key' => $Key,
+                                 'ReturnConsumedCapacity' => $ReturnConsumedCapacity,
+                                 'TableName' => $TableName
+                            }));
+    
     $self->_process_request(
         $req, 
         sub {
@@ -548,31 +546,22 @@ L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_BatchWriteIt
 =cut
 
 
-sub batch_write_item {
-    my $self = shift;
-    my %args = @_;
-
+method batch_write_item(BatchWriteRequestItemsType :$RequestItems! where { scalar(keys %$_) > 0 },
+                        ReturnConsumedCapacityType :$ReturnConsumedCapacity,
+                        ReturnItemCollectionMetricsType :$ReturnItemCollectionMetrics,
+                    ) {
     my @all_requests;
 
-    foreach my $table_name (keys %{$args{RequestItems}}) {
+    foreach my $table_name (keys %$RequestItems) {
         # Item.
-        my $table_items = $args{RequestItems}->{$table_name};
+        my $table_items = $RequestItems->{$table_name};
             
         my $seen_type;
         foreach my $item (@$table_items) {
             my $r;
-            if (defined($item->{DeleteRequest}) && defined($item->{PutRequest})) {
-                die("Cannot have DeleteRequest and PutRequest operations on the same table");
-            }
-
-            if (!(defined($item->{DeleteRequest}) || defined($item->{PutRequest}))) {
-                die("Must have either a DeleteRequest or PutRequest: " . Data::Dumper->Dump([$item]));
-            }
-
             foreach my $t (['DeleteRequest', 'Key'], ['PutRequest', 'Item']) {
                 if (defined($item->{$t->[0]})) {
                     my $key = $item->{$t->[0]}->{$t->[1]};
-                    defined($key) || Carp::confess("No $t->[1] defined for $t->[0]");
                     foreach my $k (keys %$key) {
                         # Don't bother encoding undefined values, same behavior as put_item
                         if (defined($key->{$k})) {
@@ -589,8 +578,8 @@ sub batch_write_item {
 
     try_repeat {
         my %payload = (
-            ReturnConsumedCapacity => $args{ReturnConsumedCapacity} // 'NONE',
-            ReturnItemCollectionMetrics => $args{ReturnItemCollectionMetrics} // 'NONE',
+            ReturnConsumedCapacity => $ReturnConsumedCapacity,
+            ReturnItemCollectionMetrics => $ReturnItemCollectionMetrics
         );
 
         #            print "Pending requests: " . scalar(@all_requests) . "\n";
@@ -664,16 +653,16 @@ Additional Parameters:
 
 =cut
 
-sub batch_get_item {
-    my $self = shift;
-    my $code = shift;
-    my %args = @_;
-
+method batch_get_item(CodeRef $code,
+                      BatchGetItemsType :$RequestItems!,
+                      ReturnConsumedCapacityType :$ReturnConsumedCapacity,
+                      Int :$ResultLimit where { !defined($_) || $_ > 0 }
+                  ) {
     my @all_requests;
     my $table_flags = {};
 
-    foreach my $table_name (keys %{$args{RequestItems}}) {
-        my $table_details = $args{RequestItems}->{$table_name};
+    foreach my $table_name (keys %$RequestItems) {
+        my $table_details = $RequestItems->{$table_name};
 
         # Store these flags for later.
         map { 
@@ -682,9 +671,6 @@ sub batch_get_item {
             }
         } ('ConsistentRead', 'AttributesToGet');
 
-        defined($table_details->{Keys}) || die("No defined keys to retrieve for table $table_name");
-        ref($table_details->{Keys}) eq 'ARRAY' || Carp::confess('Keys must be an arrayref');
-            
         foreach my $item (@{$table_details->{Keys}}) {
             my $r = {};
             foreach my $key_field (keys %$item) {
@@ -698,7 +684,7 @@ sub batch_get_item {
     try_repeat {
 
         my %payload = (
-            ReturnConsumedCapacity => $args{ReturnConsumedCapacity} // 'NONE',
+            ReturnConsumedCapacity => $ReturnConsumedCapacity
         );
 
         # Only try 100 requests at one time.
@@ -730,7 +716,7 @@ sub batch_get_item {
                     foreach my $item (@{$data->{Responses}->{$table_name}}) {
                         $code->($table_name, _decode_item_attributes($item));
                         $records_seen += 1;
-                        if (defined($args{ResultLimit}) &&$records_seen >= $args{ResultLimit}) {
+                        if (defined($ResultLimit) &&$records_seen >= $ResultLimit) {
                             @all_requests = ();
                             return $data;
                         }
@@ -750,48 +736,46 @@ sub batch_get_item {
 }
 
 
-sub query {
-    my $self = shift;
-    my $code = shift;
-    
-    # If the user is just asking for a count, don't require them to supply a callback.
-    if (ref($code) ne 'CODE') {
-        unshift @_, $code;
-    }
-    
-    my %args = @_;
+method query (CodeRef $code,
+              AttributesToGetType :$AttributesToGet,
+              StringBooleanType :$ConsistentRead,
+              ConditionalOperatorType :$ConditionalOperator,
+              KeyType :$ExclusiveStartKey,
+              TableNameType :$IndexName,
+              KeyConditionsType :$KeyConditions!,
+              Int :$Limit where { $_ >= 0 },
+              QueryFilterType :$QueryFilter,
+              ReturnConsumedCapacityType :$ReturnConsumedCapacity,
+              StringBooleanType :$ScanIndexForward,
+              SelectType :$Select,
+              TableNameType :$TableName!,
+              Int :$ResultLimit where  { $_ > 0 },
+          ) {
 
-    my $payload = _make_payload(\%args,
-                                'AttributesToGet',
-                                'ConsistentRead',
-                                'ConditionalOperator',
-                                'ExclusiveStartKey',
-                                'IndexName',
-                                'Limit',
-                                'QueryFilter',
-                                'ReturnConsumedCapacity',
-                                'ScanIndexForward',
-                                'Select',
-                                'TableName');
+    my $payload = _make_payload({
+                                'AttributesToGet' => $AttributesToGet,
+                                'ConsistentRead' => $ConsistentRead,
+                                'ConditionalOperator' => $ConditionalOperator,
+                                'ExclusiveStartKey' => $ExclusiveStartKey,
+                                'IndexName' => $IndexName,
+                                'Limit' => $Limit,
+                                'QueryFilter' => $QueryFilter,
+                                'ReturnConsumedCapacity' => $ReturnConsumedCapacity,
+                                'ScanIndexForward' => $ScanIndexForward,
+                                'Select' => $Select,
+                                'TableName' => $TableName
+                            });
     
 
-    defined($args{KeyConditions}) || Carp::confess("No KeyConditions specified for query, conditions are required.");
-    ref($args{KeyConditions}) eq 'HASH' || Carp::confess("KeyConditions must be a hashref");
-
-    foreach my $key_name (keys %{$args{KeyConditions}}) {
-        my $key_details = $args{KeyConditions}->{$key_name};
-        ref($key_details) eq 'HASH' || Carp::confess("KeyConditions for key $key_name are not a hashref");
-        my $compare_op = $key_details->{ComparisonOperator} // 'EQ';
-        $compare_op =~ /^(EQ|LE|LT|GE|GT|BEGINS_WITH|BETWEEN)$/
-            || Carp::confess("Unknown comparison operator specified: $compare_op");
-        
+    foreach my $key_name (keys %$KeyConditions) {
+        my $key_details = $KeyConditions->{$key_name};
         $payload->{KeyConditions}->{$key_name} = {
-            AttributeValueList => _encode_attribute_value_list($key_details->{AttributeValueList}, $compare_op),
-            ComparisonOperator => $compare_op
+            AttributeValueList => _encode_attribute_value_list($key_details->{AttributeValueList}, $key_details->{ComparisonOperator}),
+            ComparisonOperator => $key_details->{ComparisonOperator}
         };
     }
 
-    $self->_scan_or_query_process('Query', $payload, $code, \%args);
+    $self->_scan_or_query_process('Query', $payload, $code, { ResultLimit => $ResultLimit});
 }
 
 
@@ -827,33 +811,34 @@ Additional parameters:
 
 =cut
 
-sub scan {
-    my $self = shift;
-    my $code = shift;
-        
-    # If the user is just asking for a count, don't require them to supply a callback.
-    if (ref($code) ne 'CODE') {
-        unshift @_, $code;
-    }
+method scan (CodeRef $code,
+             AttributesToGetType :$AttributesToGet,
+             KeyType :$ExclusiveStartKey,
+             Int :$Limit where { $_ >= 0},
+             ReturnConsumedCapacityType :$ReturnConsumedCapacity,
+             Int :$ResultLimit where  { $_ > 0 },
+             ScanFilterType :$ScanFilter,
+             Int :$Segment where { $_ >= 0 },
+             SelectType :$Select,
+             TableNameType :$TableName!,
+             Int :$TotalSegments where { $_ >= 1 && $_ <= 1000000 }
+         ) {
+    my $payload = _make_payload({
+                                'AttributesToGet' => $AttributesToGet,
+                                'ExclusiveStartKey' => $ExclusiveStartKey,
+                                'Limit' => $Limit,
+                                'ReturnConsumedCapacity' => $ReturnConsumedCapacity,
+                                'ScanFilter' => $ScanFilter,
+                                'Segment' => $Segment,
+                                'Select' => $Select,
+                                'TableName' => $TableName,
+                                'TotalSegments' => $TotalSegments
+                            });
 
-    my %args = @_;
-
-    my $payload = _make_payload(\%args,
-                                'AttributesToGet',
-                                'ExclusiveStartKey',
-                                'Limit',
-                                'ReturnConsumedCapacity',
-                                'ScanFilter',
-                                'Segment',
-                                'Select',
-                                'TableName',
-                                'TotalSegments',
-                            );
-
-    $self->_scan_or_query_process('Scan', $payload, $code, \%args);
+    $self->_scan_or_query_process('Scan', $payload, $code, { ResultLimit => $ResultLimit});
 }
 
-=head1 METHODS - Internal
+=head1 METHODS - Internal 
 
 The following methods are intended for internal use and are documented
 purely for completeness - for normal operations see L</METHODS> instead.
@@ -864,12 +849,11 @@ Generates an L<HTTP::Request>.
 
 =cut
 
-sub make_request {
-    my $self = shift;
-    my %args = @_;
+method make_request(Str :$target,
+                    HashRef :$payload,
+                ) {
     my $api_version = '20120810';
     my $host = $self->host;
-    my $target = $args{target};
     my $req = HTTP::Request->new(
         POST => (($self->ssl) ? 'https' : 'http') . '://' . $self->host . ($self->port ? (':' . $self->port) : '') . '/'
     );
@@ -883,7 +867,7 @@ sub make_request {
     $req->header( 'Date' => $http_date );
     $req->header( 'x-amz-target', 'DynamoDB_'. $api_version. '.'. $target );
     $req->header( 'content-type' => 'application/x-amz-json-1.0' );
-    my $payload = $json->utf8->encode($args{payload});
+    $payload = $json->utf8->encode($payload);
     $req->content($payload);
     $req->header( 'Content-Length' => length($payload));
     my $amz = Amazon::DynamoDB::SignatureV4->new(
@@ -898,17 +882,16 @@ sub make_request {
     $req
 }
 
-sub _request {
-    my $self = shift;
-    my $req = shift;
-    $self->implementation->request($req)
+method _request(HTTP::Request $req) {
+    $self->implementation->request($req);
 }
 
 
 # Since scan and query have the same type of responses share the processing.
-sub _scan_or_query_process {
-    my ($self, $target, $payload, $code, $args) = @_;
-
+method _scan_or_query_process (Str $target,
+                               HashRef $payload,
+                               CodeRef $code,
+                               HashRef $args) {
     my $finished = 0;
     my $records_seen = 0;
     my $repeat = try_repeat {
@@ -961,8 +944,7 @@ C<http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DataFormat.htm
 
 =cut
 
-sub _encode_type_and_value {
-    my $v = shift;
+fun _encode_type_and_value(Any $v) {
     my $type;
 
     if (ref($v)) {
@@ -1015,9 +997,7 @@ sub _encode_type_and_value {
     }
 }
 
-sub _decode_type_and_value {
-    my ($type, $value) = @_;
-
+fun _decode_type_and_value(Str $type, Any $value) {
     if ($type eq 'S' || $type eq 'SS') {
         return $value;
     } elsif ($type eq 'N') {
@@ -1034,8 +1014,7 @@ sub _decode_type_and_value {
 }
 
 
-sub _decode_item_attributes {
-    my $item = shift;
+fun _decode_item_attributes(Maybe[HashRef] $item) {
     my $r;
     foreach my $key (keys %$item) {
         my $type = (keys %{$item->{$key}})[0];
@@ -1045,8 +1024,7 @@ sub _decode_item_attributes {
     return $r;
 }
 
-sub _process_request {
-    my ($self, $req, $done) = @_;
+method _process_request(HTTP::Request $req, CodeRef $done?) {
     my $current_retry = 0;
     my $do_retry = 1;
     try_repeat {
@@ -1129,10 +1107,7 @@ my $encode_key = sub {
 };
 
 
-sub _encode_attribute_value_list {
-    my $value_list = shift;
-    my $compare_op = shift;
-
+fun _encode_attribute_value_list(Any $value_list, Str $compare_op) {
     if ($compare_op =~ /^(EQ|NE|LE|LT|GE|GT|CONTAINS|NOT_CONTAINS|BEGINS_WITH)$/) {
         defined($value_list) || Carp::confess("No defined value for comparison operator: $compare_op");
         $value_list = [ { _encode_type_and_value($value_list) } ];
@@ -1142,7 +1117,7 @@ sub _encode_attribute_value_list {
         }
         $value_list = [ map { { _encode_type_and_value($_) } } @$value_list];
     } elsif ($compare_op eq 'BETWEEN') {
-        ref($value_list) eq 'ARRAY' || Carp::confess("Use of BETWEEN comparision operator requires an array");
+        ref($value_list) eq 'ARRAY' || Carp::confess("Use of BETWEEN comparison operator requires an array");
         scalar(@$value_list) == 2 || Carp::confess("BETWEEN comparison operator requires two values");
         $value_list = [ map { { _encode_type_and_value($_) } } @$value_list];
     }
@@ -1169,9 +1144,7 @@ my $encode_filter = sub {
 };
 
 my $parameter_type_definitions = {
-    AttributesToGet => {
-        source_type => 'ARRAY',
-    },
+    AttributesToGet => {},
     AttributeUpdates => {
         encode => sub {
             my $source = shift;
@@ -1190,16 +1163,12 @@ my $parameter_type_definitions = {
     },
     # should be a boolean
     ConsistentRead => {},
-    ConditionalOperator => {
-        allowed_values => ['AND', 'OR'],
-    },
+    ConditionalOperator => {},
     ExclusiveStartKey => {
-        source_type => 'HASH',
         encode => $encode_key,
     },
     ExclusiveStartTableName => {},    
     Expected => {
-        source_type => 'HASH',
         encode => sub {
             my $source = shift;
             my $r;
@@ -1227,45 +1196,29 @@ my $parameter_type_definitions = {
     },
     IndexName => {},
     Item => {
-        source_type => 'HASH',
         encode => $encode_key,
-        required => 1,
     },
     Key => {
-        source_type => 'HASH',
         encode => $encode_key,
-        required => 1,
     },
     Limit => {
         type_check => 'integer',
     },
     QueryFilter => {
-        source_type => 'HASH',
         encode => $encode_filter,
     },
-    ReturnConsumedCapacity => {
-        allowed_values => ['INDEXES', 'TOTAL', 'NONE'],
-    },
-    ReturnItemCollectionMetrics => {
-        allowed_values => ['NONE', 'SIZE'],
-    },
-    ReturnValues => {
-        allowed_values => ['NONE', 'ALL_OLD', 'UPDATED_OLD', 'ALL_NEW', 'UPDATED_NEW'],
-    },
+    ReturnConsumedCapacity => {},
+    ReturnItemCollectionMetrics => {},
+    ReturnValues => {},
     ScanIndexForward => {},
     ScanFilter => {
-        source_type => 'HASH',
         encode => $encode_filter,
     },
     Segment => {
         type_check => 'integer',
     },
-    Select => {
-        allowed_values => ['ALL_ATTRIBUTES', 'ALL_PROJECTED_ATTRIBUTES', 'SPECIFIC_ATTRIBUTES', 'COUNT'],
-    },
-    TableName => {
-        required => 1
-    },
+    Select => {},
+    TableName => {},
     TotalSegments => {
         type_check => 'integer',
     },
@@ -1279,32 +1232,20 @@ sub _make_payload {
     my $args = shift;
     my @field_names = @_;
 
+    if (scalar(@field_names) == 0) {
+        @field_names = keys %$args;
+    }
+
     my %r;
     foreach my $field_name (@field_names) {
         my $value = $args->{$field_name};
         my $def = $parameter_type_definitions->{$field_name} || Carp::confess("Unknown parameter type: $field_name");
-        if ($def->{required} && !defined($value)) {
-            Carp::confess("Parameter $field_name is not defined and it is required");
-        }
         if (defined($value)) {
-            if ($def->{allowed_values} && scalar(grep { $_ eq $value } @{$def->{allowed_values}}) == 0) {
-                Carp::confess("$field_name is specified to be '$value' but it is not an allowed value. Valid values are: " . join(",", @{$def->{allowed_values}}));
-            }
-            
-            if ($def->{source_type} && ref($value) ne $def->{source_type}) {
-                Carp::confess("$field_name is specified to be of type $def->{source_type} but it is of type: " . ref($value));
-            }
-
             if ($def->{type_check} && $def->{type_check} eq 'integer') {
                 $value =~ /^\d+$/ || Carp::confess("$field_name is specified to be an integer but the value is not an integer: $value");
                 $value = int($value);
             }
-
-        } else {
-            if ($def->{defined_default}) {
-                $value = $def->{defined_default};
-            }
-        }
+        } 
 
         if (defined($def->{encode})) {
             $value = $def->{encode}->($value);
@@ -1317,8 +1258,8 @@ sub _make_payload {
     return \%r;
 }
 
-sub _decode_single_item_change_response {
-    my $r = $json->utf8->decode(shift);
+fun _decode_single_item_change_response(Str $response) {
+    my $r = $json->utf8->decode($response);
     if (defined($r->{Attributes})) {
         $r->{Attributes} = _decode_item_attributes($r->{Attributes});
     }
@@ -1334,8 +1275,7 @@ sub _decode_single_item_change_response {
 }
 
 
-sub _create_key_schema {
-    my ($source, $known_fields) = @_;
+fun _create_key_schema(ArrayRef $source, HashRef $known_fields) {
     defined($source) || die("No source passed to create_key_schema");
     defined($known_fields) || die("No known fields passed to create_key_schmea");
     my @r;

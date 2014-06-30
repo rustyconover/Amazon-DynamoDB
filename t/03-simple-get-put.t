@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib ('lib', './t');
-use Test::More;
+use Test::Most;
 use Test::Differences;
 use TestSettings;
 use Data::Dumper;
@@ -12,6 +12,8 @@ unless ( $ENV{'AMAZON_DYNAMODB_EXPENSIVE_TESTS'} ) {
 } else {
     plan tests => 84;
 }
+
+bail_on_fail;
 
 my $ddb = TestSettings::get_ddb();
 my $table_name = TestSettings::random_table_name();
@@ -114,7 +116,7 @@ my $source_data = {
         Key => {
             user_id => $source_data->{user_id}
         });
-    ok($get->is_done, "get_item completed ok");
+    ok($get->is_done, "get_item completed ok:" . Data::Dumper->Dump([$get]));
     ok(!defined($found_item), "an item was not retrieved");
 }
 

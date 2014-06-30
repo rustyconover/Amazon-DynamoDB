@@ -37,9 +37,9 @@ response content on success, or the failure reason on failure.
 sub request {
 	my $self = shift;
 	my $req = shift;
-        #print "Sending : " . $req->as_string() . "\n\n";
+        #        print "Sending : " . $req->as_string() . "\n\n";
 	my $resp = $self->ua->request($req);
-        #print "Got back: " . $resp->as_string() . "\n\n";
+        #        print "Got back: " . $resp->as_string() . "\n\n";
 	return Future->new->done($resp->decoded_content) if $resp->is_success;
 
 	my $status = join ' ', $resp->code, $resp->message;

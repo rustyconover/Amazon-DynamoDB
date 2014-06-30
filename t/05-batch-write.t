@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib ('lib', './t');
-use Test::More;
+use Test::Most;
 use Test::Differences;
 use TestSettings;
 use Data::Dumper;
@@ -13,6 +13,7 @@ unless ( $ENV{'AMAZON_DYNAMODB_EXPENSIVE_TESTS'} ) {
     plan tests => 2417;
 }
 
+bail_on_fail;
 
 
 my $ddb = TestSettings::get_ddb();
