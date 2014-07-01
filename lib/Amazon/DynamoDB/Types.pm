@@ -31,6 +31,7 @@ use Type::Library
                       KeyConditionsType
                       QueryFilterType
                       ScanFilterType
+                      ExpectedValueType
                       AttributesToGetType);
               
 use Type::Utils -all;
@@ -108,12 +109,22 @@ coerce LocalSecondaryIndexType, from HashRef, via {
 declare TableStatusType, as StrMatch[qr/^(CREATING|UPDATING|DELETING|ACTIVE)$/];
 coerce TableStatusType, from Str, via { TableStatusType->new($_) };
 
-declare ExpectedType, as Map[AttributeNameType, Dict[AttributeValueList => Optional[AttributeValueType],
-                                                     ComparisonOperator => Optional[ComparisonOperatorType],
-                                                     Exists => Optional[StringBooleanType],
-                                                     Value => Optional[AttributeValueType],
-                                                 ], where { scalar(keys %$_) > 0 }
-                           ];
+declare ExpectedValueType, as Dict[AttributeValueList => Optional[AttributeValueType],
+                                   ComparisonOperator => Optional[ComparisonOperatorType],
+                                   Exists => Optional[StringBooleanType],
+                                   Value => Optional[AttributeValueType],
+                               ], where { scalar(keys %$_) > 0 && 
+                                              # don't allow both forms of expected/comparision operator
+                                              # to be used at the same time.
+                                              ((exists($_->{AttributeValueList}) || exists($_->{ComparisonOperatorType}))
+                                              &&
+                                              (exists($_->{Exists}) || exists($_->{Value})))
+                                          };
+
+declare ExpectedType, as Map[AttributeNameType, ExpectedValueType];
+
+
+
 coerce ExpectedType, from HashRef, via { ExpectedType->new($_) };
 
 
@@ -149,7 +160,4 @@ declare ScanFilterType, as Map[AttributeNameType, Dict[AttributeValueList => Opt
                                                      ]];
 
 
-
 1;
-
-
