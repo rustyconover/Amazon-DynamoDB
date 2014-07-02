@@ -74,7 +74,7 @@ sub new {
         Module::Load::load($args{implementation});
         $args{implementation} = $args{implementation}->new(%args);
     }
-    my $version = delete $args{version} || '201208010';
+    my $version = delete $args{version} || '20120810';
     my $pkg = __PACKAGE__ . '::' . $version;
     if (my $code = $pkg->can('new')) {
         $class = $pkg if $class eq __PACKAGE__;
