@@ -116,8 +116,8 @@ declare ExpectedValueType, as Dict[AttributeValueList => Optional[AttributeValue
                                ], where { scalar(keys %$_) > 0 && 
                                               # don't allow both forms of expected/comparision operator
                                               # to be used at the same time.
-                                              ((exists($_->{AttributeValueList}) || exists($_->{ComparisonOperatorType}))
-                                              &&
+                                              ((exists($_->{AttributeValueList}) || exists($_->{ComparisonOperator}))
+                                               xor
                                               (exists($_->{Exists}) || exists($_->{Value})))
                                           };
 
