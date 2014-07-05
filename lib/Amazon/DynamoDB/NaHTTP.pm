@@ -45,14 +45,27 @@ sub request {
 	my $self = shift;
 	my $req = shift;
 	my ($host, $port) = split /:/, ''.$req->uri->host_port;
+        my $resp;
 	$self->ua->do_request(
 		request => $req,
 		host    => $host,
 		port    => $port || 80,
-	)->transform(
+                on_response => sub {
+                    $resp = shift;
+                }
+	)-> transform(
 		done => sub {
-			shift->decoded_content
+                    if ($resp->is_success()) {
+                        return $resp->decoded_content;
+                    } else {
+                        my $status = join ' ', $resp->code, $resp->message;
+                        return Future->new->fail($status, $resp, $req)
+                    }
 		},
+                fail => sub {
+                    my $status = join ' ', $resp->code, $resp->message;
+                    return ($status, $resp, $req);
+                },
 	);
 }
 
