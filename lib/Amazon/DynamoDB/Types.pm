@@ -74,7 +74,18 @@ declare StringBooleanType, as StrMatch[qr/^(true|false)$/];
 coerce StringBooleanType, from Str, via { StringBooleanType->new($_); };
 
 declare AttributeValueType, as Defined, where {  
-    (!ref($_) && "$_" =~ /\S/) || (ref($_) eq 'ARRAY' && scalar(@$_) > 0) || (ref($_) eq 'SCALAR'); 
+    my $v = shift @_;
+    my $ref_type = ref($v);
+    if ($ref_type ne '') {
+        if ($ref_type eq 'SCALAR') {
+            return defined($$v);
+        } elsif ($ref_type eq 'ARRAY') {
+            return scalar(@$v) > 0;
+        } 
+    } else {
+        return $v =~ /\S/;
+    }
+    return 0;
 };
 
 declare AttributesToGetType, as ArrayRef[AttributeNameType], where { scalar(@$_) >= 1 };

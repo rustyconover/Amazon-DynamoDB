@@ -1003,9 +1003,9 @@ fun _decode_type_and_value(Str $type, Any $value) {
     } elsif ($type eq 'N') {
         return  0+$value;
     } elsif ($type eq 'B') {
-        return \MIME::Base64::decode_base64($value);
+        return MIME::Base64::decode_base64($value);
     } elsif ($type eq 'BS') {
-        return [map { \MIME::Base64::decode_base64($_) } @$value];
+        return [map { MIME::Base64::decode_base64($_) } @$value];
     } elsif ($type eq 'NS') {
         return [map { 0+$_} @$value];
     } else {
