@@ -877,13 +877,14 @@ method make_request(Str :$target,
         defined($creds) || die("Unable to retrieve IAM role credentials");
         $self->{access_key} = $creds->accessKeyId;
         $self->{secret_key} = $creds->secretAccessKey;
+        $req->header('x-amz-security-token' => $creds->sessionToken);
     }
 
     my $amz = Amazon::DynamoDB::SignatureV4->new(
         version    => 4,
         algorithm  => $self->algorithm,
-        access_key => $self->access_key,
         scope      => $date . "/" . $self->scope,
+        access_key => $self->access_key,
         secret_key => $self->secret_key,
     );
     $amz->from_http_request($req);
