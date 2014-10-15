@@ -13,8 +13,12 @@ Amazon::DynamoDB - support for the AWS DynamoDB API
   my $ddb = Amazon::DynamoDB->new(
      implementation => 'Amazon::DynamoDB::LWP',
      version        => '20120810',
+
      access_key     => 'access_key',
      secret_key     => 'secret_key',
+     # or you specify to use an IAM role
+     use_iam_role   => 1, 
+
      host => 'dynamodb.us-east-1.amazonaws.com',
      scope => 'us-east-1/dynamodb/aws4_request',
      ssl => 1,
