@@ -21,10 +21,10 @@ use List::MoreUtils;
 use B qw(svref_2object);
 use HTTP::Request;
 use Kavorka;
-use Amazon::DynamoDB::SignatureV4;
 use Amazon::DynamoDB::Types;
 use Type::Registry;
 use VM::EC2::Security::CredentialCache;
+use AWS::Signature4;
    
 BEGIN {
     my $reg = "Type::Registry"->for_me; 
@@ -880,16 +880,13 @@ method make_request(Str :$target,
         $req->header('x-amz-security-token' => $creds->sessionToken);
     }
 
-    my $amz = Amazon::DynamoDB::SignatureV4->new(
-        version    => 4,
-        algorithm  => $self->algorithm,
-        scope      => $date . "/" . $self->scope,
-        access_key => $self->access_key,
-        secret_key => $self->secret_key,
-    );
-    $amz->from_http_request($req);
-    $req->header(Authorization => $amz->calculate_signature);
-    $req
+        
+
+    my $signer = AWS::Signature4->new(-access_key => $self->access_key,
+                                      -secret_key => $self->secret_key);
+    
+    $signer->sign($req);
+    return $req;
 }
 
 method _request(HTTP::Request $req) {
