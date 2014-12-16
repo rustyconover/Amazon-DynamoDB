@@ -338,9 +338,11 @@ L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_PutItem.html
 
 =cut
 
-method put_item (ItemType :$Item!,
+method put_item (ConditionalOperatorType :$ConditionalOperator,
+                 Str :$ConditionExpression,
+                 ItemType :$Item!,
                  ExpectedType :$Expected,
-                 ConditionalOperatorType :$ConditionalOperator,
+                 ExpressionAttributeValuesType :$ExpressionAttributeValues,
                  ReturnConsumedCapacityType :$ReturnConsumedCapacity,
                  ReturnItemCollectionMetricsType :$ReturnItemCollectionMetrics,
                  ReturnValuesType :$ReturnValues,
@@ -350,6 +352,8 @@ method put_item (ItemType :$Item!,
         payload => _make_payload({
             'ConditionalOperator' => $ConditionalOperator,
             'Expected' => $Expected,
+            'ConditionExpression' => $ConditionExpression,
+            'ExpressionAttributeValues' => $ExpressionAttributeValues,
             'Item' => $Item,
             'ReturnConsumedCapacity' => $ReturnConsumedCapacity,
             'ReturnItemCollectionMetrics' => $ReturnItemCollectionMetrics,
@@ -878,9 +882,7 @@ method make_request(Str :$target,
         $self->{access_key} = $creds->accessKeyId;
         $self->{secret_key} = $creds->secretAccessKey;
         $req->header('x-amz-security-token' => $creds->sessionToken);
-    }
-
-        
+    }        
 
     my $signer = AWS::Signature4->new(-access_key => $self->access_key,
                                       -secret_key => $self->secret_key);
@@ -1171,10 +1173,21 @@ my $parameter_type_definitions = {
     # should be a boolean
     ConsistentRead => {},
     ConditionalOperator => {},
+    ConditionExpression => {},
     ExclusiveStartKey => {
         encode => $encode_key,
     },
     ExclusiveStartTableName => {},    
+    ExpressionAttributeValues => {
+        encode => sub {
+            my $source = shift;
+            my $r;
+            foreach my $key (grep { defined($source->{$_}) } keys %$source) {
+                $r->{$key} = { _encode_type_and_value($source->{$key}) };
+            }
+            return $r;
+        }
+    },
     Expected => {
         encode => sub {
             my $source = shift;
