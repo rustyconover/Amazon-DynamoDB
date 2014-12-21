@@ -33,6 +33,7 @@ use Type::Library
                       ScanFilterType
                       ExpectedValueType
                       ExpressionAttributeValuesType
+                      ExpressionAttributeNamesType
                       AttributesToGetType);
               
 use Type::Utils -all;
@@ -171,8 +172,11 @@ declare ScanFilterType, as Map[AttributeNameType, Dict[AttributeValueList => Opt
                                                        ComparisonOperator => ComparisonOperatorType
                                                      ]];
 
-declare ExpressionAttributeValuesType, as Map[StrMatch[qr/^:[a-zA-Z][a-z0-9A-Z]*$/], AttributeValueType];
+declare ExpressionAttributeValuesType, as Map[StrMatch[qr/^:[a-zA-Z][a-z0-9A-Z_]*$/], AttributeValueType];
 coerce ExpressionAttributeValuesType, from HashRef, via { ExpressionAttributeValuesType->new($_) };
+
+declare ExpressionAttributeNamesType, as Map[StrMatch[qr/^\#[a-zA-Z][a-z0-9A-Z_]*$/], Str];
+coerce ExpressionAttributeNamesType, from HashRef, via { ExpressionAttributeNamesType->new($_) };
 
 
 1;

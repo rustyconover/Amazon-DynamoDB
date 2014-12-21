@@ -755,6 +755,9 @@ method query (CodeRef $code,
               SelectType :$Select,
               TableNameType :$TableName!,
               Int :$ResultLimit where  { $_ > 0 },
+              Str :$FilterExpression,
+              ExpressionAttributeValuesType :$ExpressionAttributeValues,
+              ExpressionAttributeNamesType :$ExpressionAttributeNames,
           ) {
 
     my $payload = _make_payload({
@@ -762,6 +765,9 @@ method query (CodeRef $code,
                                 'ConsistentRead' => $ConsistentRead,
                                 'ConditionalOperator' => $ConditionalOperator,
                                 'ExclusiveStartKey' => $ExclusiveStartKey,
+                                'ExpressionAttributeNames' => $ExpressionAttributeNames,
+                                'ExpressionAttributeValues' => $ExpressionAttributeValues,
+                                'FilterExpression' => $FilterExpression,
                                 'IndexName' => $IndexName,
                                 'Limit' => $Limit,
                                 'QueryFilter' => $QueryFilter,
@@ -826,11 +832,17 @@ method scan (CodeRef $code,
              Int :$Segment where { $_ >= 0 },
              SelectType :$Select,
              TableNameType :$TableName!,
-             Int :$TotalSegments where { $_ >= 1 && $_ <= 1000000 }
+             Int :$TotalSegments where { $_ >= 1 && $_ <= 1000000 },
+             Str :$FilterExpression,
+             ExpressionAttributeValuesType :$ExpressionAttributeValues,
+             ExpressionAttributeNamesType :$ExpressionAttributeNames,
          ) {
     my $payload = _make_payload({
                                 'AttributesToGet' => $AttributesToGet,
                                 'ExclusiveStartKey' => $ExclusiveStartKey,
+                                'ExpressionAttributeValues' => $ExpressionAttributeValues,
+                                'ExpressionAttributeNames' => $ExpressionAttributeNames,
+                                'FilterExpression' => $FilterExpression,
                                 'Limit' => $Limit,
                                 'ReturnConsumedCapacity' => $ReturnConsumedCapacity,
                                 'ScanFilter' => $ScanFilter,
@@ -1178,6 +1190,7 @@ my $parameter_type_definitions = {
         encode => $encode_key,
     },
     ExclusiveStartTableName => {},    
+    ExpressionAttributeNames => {},
     ExpressionAttributeValues => {
         encode => sub {
             my $source = shift;
@@ -1214,6 +1227,7 @@ my $parameter_type_definitions = {
             return $r;
         },
     },
+    FilterExpression => {},
     IndexName => {},
     Item => {
         encode => $encode_key,
