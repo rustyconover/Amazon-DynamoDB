@@ -913,7 +913,7 @@ method _scan_or_query_process (Str $target,
         # decrease our limit of results to scan in each call by the number 
         # of records remaining that the overall request wanted ot pull.
         if (defined($args->{ResultLimit})) {
-            $payload->{Limit} = $payload->{ResultLimit} - $records_seen;
+            $payload->{Limit} = $args->{ResultLimit} - $records_seen;
         }
 
         my $req = $self->make_request(
