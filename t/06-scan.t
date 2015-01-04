@@ -184,7 +184,7 @@ ok($ddb->batch_write_item(
                 push @found_items, $item;
             },
             TableName => $table_name,
-            ResultLimit => 3,
+            Limit => 3,
         )->is_done, "Scan completed successfully.");
     is(scalar(@found_items), 3, "Correct number of items were returned with limit");
 }
@@ -199,7 +199,7 @@ ok($ddb->batch_write_item(
                 push @found_items, $item;
             },
             TableName => $table_name,
-            ResultLimit => 30000,
+            Limit => 30000,
         )->is_done, "Scan completed successfully.");
     is(scalar(@found_items), scalar(@put_items), "Correct number of items were returned with limit greater than the total number of records");
 }

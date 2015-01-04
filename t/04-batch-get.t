@@ -91,7 +91,7 @@ ok($ddb->batch_get_item(
         is($item->{name}, "Test User - " . $item->{user_id}, "User id matches");
         $limited_keys_seen++;
     },
-    ResultLimit => 13,
+    Limit => 13,
     RequestItems => {
         $table_name => {
 
@@ -105,7 +105,7 @@ ok($ddb->batch_get_item(
         }
     })->is_done, "Batch get was successfully completed");
 
-is($limited_keys_seen, 13, "ResultLimit worked for 13 keys");
+is($limited_keys_seen, 13, "Limit worked for 13 keys");
 
 my %remaining_keys = map { $_ => 1 } @all_keys;
 
