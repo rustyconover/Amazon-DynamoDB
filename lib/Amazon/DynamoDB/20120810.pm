@@ -307,7 +307,7 @@ method each_table(CodeRef $code,
         $self->_process_request($req,
                                 sub {
                                     my $result = shift;
-                                    decode_json($result);
+                                    my $data = decode_json($result);
                                     for my $tbl (@{$data->{TableNames}}) {
                                         $code->($tbl);
                                     }
