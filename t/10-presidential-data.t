@@ -6,7 +6,7 @@ use Test::Most;
 use TestSettings;
 use String::Random;
 use Data::Dumper;
-use JSON::XS;
+use JSON::MaybeXS qw(decode_json);
 
 
 unless ( $ENV{'AMAZON_DYNAMODB_EXPENSIVE_TESTS'} ) {
@@ -33,7 +33,7 @@ my $presidents_data;
 }
 close($fh);
 
-$presidents_data = JSON::XS::decode_json($presidents_data);
+$presidents_data = decode_json($presidents_data);
 ok(defined($presidents_data), "presidents.json was successfully read");
 
 
