@@ -973,8 +973,13 @@ C<http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DataFormat.htm
 
 =cut
 
-fun _encode_type_and_value(Any $v) {
+fun _encode_type_and_value(Maybe[Any] $v) {
     my $type;
+
+    if (!defined($v)) {
+        $type = 'NULL';
+        return ($type, undef);
+    }
 
     if (ref($v)) {
         # An array maps to a sequence
@@ -1021,9 +1026,9 @@ fun _encode_type_and_value(Any $v) {
         return ($type, [map { "$_" } @$v]);
     } elsif ($type eq 'BS') {
         return ($type, [map { MIME::Base64::encode_base64(${$_}, '') } @$v]);
-    } else {
-        die("Unknown type for quoting and escaping: $type");
     }
+    
+    die("Unknown type for quoting and escaping: $type");
 }
 
 fun _decode_type_and_value(Str $type, Any $value) {
@@ -1037,6 +1042,17 @@ fun _decode_type_and_value(Str $type, Any $value) {
         return [map { MIME::Base64::decode_base64($_) } @$value];
     } elsif ($type eq 'NS') {
         return [map { 0+$_} @$value];
+    } elsif ($type eq 'NULL') {
+        return undef;
+    } elsif ($type eq 'L') {
+        return [map { _decode_item_attributes($_) } @$value];
+    } elsif ($type eq 'M') {
+        foreach my $key (keys %$value) {
+            $value->{$key} = _decode_item_attributes($value->{$key});
+        }
+        return $value;
+    } elsif ($type eq 'BOOL') {
+        return $value ? 1 : 0;
     } else {
         die("Don't know how to decode type: $type");
     }
