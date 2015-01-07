@@ -942,8 +942,12 @@ method _scan_or_query_process (Str $target,
                     if (!$finished) {
                         $payload->{ExclusiveStartKey} = $data->{LastEvaluatedKey};                    
                     }
+                }
+                
+                if (defined($data->{LastEvaluatedKey}) && $finished) {
                     $data->{LastEvaluatedKey} = _decode_item_attributes($data->{LastEvaluatedKey});
                 }
+
 
                 return $data;
             })
