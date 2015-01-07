@@ -76,8 +76,9 @@ coerce ConditionalOperatorType, from Str, via { ConditionalOperatorType->new($_)
 declare StringBooleanType, as StrMatch[qr/^(true|false)$/];
 coerce StringBooleanType, from Str, via { StringBooleanType->new($_); };
 
-declare AttributeValueType, as Defined, where {  
+declare AttributeValueType, as Maybe[Defined], where {  
     my $v = shift @_;
+    !defined($v) && return 1;
     my $ref_type = ref($v);
     if ($ref_type ne '') {
         if ($ref_type eq 'SCALAR') {
