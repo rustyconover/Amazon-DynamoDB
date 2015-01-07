@@ -14,7 +14,7 @@ Amazon::DynamoDB::20120810 - interact with DynamoDB using API version 20120810
 use Future;
 use Future::Utils qw(repeat try_repeat);
 use POSIX qw(strftime);
-use JSON::XS;
+use JSON::MaybeXS qw(decode_json encode_json);
 use MIME::Base64;
 use List::Util;
 use List::MoreUtils;
@@ -32,8 +32,6 @@ BEGIN {
     $reg->add_types("Amazon::DynamoDB::Types");
 };
 
-
-my $json = JSON::XS->new;
 
 =head2 new
 
@@ -212,7 +210,7 @@ method describe_table(TableNameType :$TableName!) {
     $self->_process_request($req,
                             sub { 
                                 my $content = shift; 
-                                $json->utf8->decode($content)->{Table};
+                                decode_json($content)->{Table};
                             });
 }
 
@@ -235,7 +233,7 @@ method delete_table(TableNameType :$TableName!) {
     $self->_process_request($req,
                             sub {
                                 my $content = shift;
-                                $json->utf8->decode($content)->{TableDescription}
+                                decode_json($content)->{TableDescription}
                             });
 }
 
@@ -309,7 +307,7 @@ method each_table(CodeRef $code,
         $self->_process_request($req,
                                 sub {
                                     my $result = shift;
-                                    my $data = $json->utf8->decode($result);
+                                    decode_json($result);
                                     for my $tbl (@{$data->{TableNames}}) {
                                         $code->($tbl);
                                     }
@@ -507,7 +505,7 @@ method get_item(CodeRef $code,
         $req, 
         sub {
             my $result = shift;
-            my $data = $json->utf8->decode($result);
+            my $data = decode_json($result);
             $code->(_decode_item_attributes($data->{Item}));
         });
 }
@@ -605,7 +603,7 @@ method batch_write_item(BatchWriteRequestItemsType :$RequestItems! where { scala
             $req,
             sub {
                 my $result = shift;
-                my $data = $json->utf8->decode($result);
+                my $data = decode_json($result);
                     
                 if (defined($data->{UnprocessedItems})) {
                     foreach my $table_name (keys %{$data->{UnprocessedItems}}) {
@@ -716,7 +714,7 @@ method batch_get_item(CodeRef $code,
             $req,
             sub {
                 my $result = shift;
-                my $data = $json->utf8->decode($result);
+                my $data = decode_json($result);
                 foreach my $table_name (keys %{$data->{Responses}}) {
                     foreach my $item (@{$data->{Responses}->{$table_name}}) {
                         $code->($table_name, _decode_item_attributes($item));
@@ -876,7 +874,7 @@ method make_request(Str :$target,
     $req->header( 'Date' => $http_date );
     $req->header( 'x-amz-target', 'DynamoDB_'. $api_version. '.'. $target );
     $req->header( 'content-type' => 'application/x-amz-json-1.0' );
-    $payload = $json->utf8->encode($payload);
+    $payload = encode_json($payload);
     $req->content($payload);
     $req->header( 'Content-Length' => length($payload));
     
@@ -925,7 +923,7 @@ method _scan_or_query_process (Str $target,
             $req,
             sub {
                 my $result = shift;
-                my $data = $json->utf8->decode($result);
+                my $data = decode_json($result);
                 
                 for my $entry (@{$data->{Items}}) {
                     $code->(_decode_item_attributes($entry));
@@ -1070,7 +1068,7 @@ method _process_request(HTTP::Request $req, CodeRef $done?) {
                             $do_retry = 1;
                             $current_retry++;
                         } elsif ($resp->code == 400) {
-                            $r = $json->utf8->decode($resp->decoded_content);
+                            $r = decode_json($resp->decoded_content);
                             if ($r->{__type} =~ /ProvisionedThroughputExceededException$/) {
                                 # Need to sleep
                                 $do_retry = 1;
@@ -1297,7 +1295,7 @@ sub _make_payload {
 }
 
 fun _decode_single_item_change_response(Str $response) {
-    my $r = $json->utf8->decode($response);
+    my $r = decode_json($response);
     if (defined($r->{Attributes})) {
         $r->{Attributes} = _decode_item_attributes($r->{Attributes});
     }
