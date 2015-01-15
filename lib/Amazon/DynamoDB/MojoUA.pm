@@ -38,13 +38,13 @@ sub request {
 	my $self = shift;
 	my $req = shift;
 	my $method = lc $req->method;
-	my $resp = $self->ua->$method(''.$req->uri => { map {; $_ => ''.$req->header($_) } $req->header_field_names } => $req->content);
-	if(my $res = $resp->success) {
+	my $tx = $self->ua->$method(''.$req->uri => { map {; $_ => ''.$req->header($_) } $req->header_field_names } => $req->content);
+	if(my $res = $tx->success) {
 		return Future->new->done($res->body)
 	}
 
-	my $status = join ' ', $resp->error;
-	return Future->new->fail($status, $resp, $req)
+	my $status = $tx->res->code;
+	return Future->new->fail($status, $tx->res, $req)
 }
 
 =head2 ua
