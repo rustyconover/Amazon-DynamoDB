@@ -1067,12 +1067,15 @@ method _process_request(HTTP::Request $req, CodeRef $done?) {
                 fail => sub {
                     my ($status, $resp, $req)= @_;
                     my $r;
-                    if (defined($resp)) {
+                    if (defined($resp) && defined($resp->code)) {
                         if ($resp->code == 500) {
                             $do_retry = 1;
                             $current_retry++;
                         } elsif ($resp->code == 400) {
-                            $r = decode_json($resp->decoded_content);
+                            my $json = $resp->can('decoded_content');
+                                ? $resp->decoded_content
+                                : $resp->body; # Mojo
+                            $r = decode_json($json);
                             if ($r->{__type} =~ /ProvisionedThroughputExceededException$/) {
                                 # Need to sleep
                                 $do_retry = 1;
