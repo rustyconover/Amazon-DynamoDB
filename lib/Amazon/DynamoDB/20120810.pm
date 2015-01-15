@@ -1072,7 +1072,7 @@ method _process_request(HTTP::Request $req, CodeRef $done?) {
                             $do_retry = 1;
                             $current_retry++;
                         } elsif ($resp->code == 400) {
-                            my $json = $resp->can('decoded_content');
+                            my $json = $resp->can('decoded_content')
                                 ? $resp->decoded_content
                                 : $resp->body; # Mojo
                             $r = decode_json($json);
