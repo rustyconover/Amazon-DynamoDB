@@ -934,7 +934,7 @@ method _scan_or_query_process (Str $target,
                     $finished = 1;
                 } 
 
-                if (!defined($payload->{LastEvaluatedKey})) {
+                if (!defined($data->{LastEvaluatedKey})) {
                     $finished = 1;
                 } else {
                     if (!$finished) {
