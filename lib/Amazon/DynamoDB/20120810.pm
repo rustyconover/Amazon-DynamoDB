@@ -400,25 +400,36 @@ L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateItem.h
 
 =cut
 
-method update_item (AttributeUpdatesType :$AttributeUpdates!,
+method update_item (AttributeUpdatesType :$AttributeUpdates,
+                    Str :$ConditionExpression,
                     ConditionalOperatorType :$ConditionalOperator,
                     ExpectedType :$Expected,
                     KeyType :$Key!,
                     ReturnConsumedCapacityType :$ReturnConsumedCapacity,
                     ReturnItemCollectionMetricsType :$ReturnItemCollectionMetrics,
                     ReturnValuesType :$ReturnValues,
-                    TableNameType :$TableName!) {
+                    TableNameType :$TableName!,
+                    ExpressionAttributeValuesType :$ExpressionAttributeValues,
+                    ExpressionAttributeNamesType :$ExpressionAttributeNames,
+                    Str :$UpdateExpression,
+                ) {
+    (defined($AttributeUpdates) xor defined($UpdateExpression)) || die("Either AttributeUpdates or UpdateExpression is required");
+    
     my $req = $self->make_request(
         target => 'UpdateItem',
         payload => _make_payload({
                                  'AttributeUpdates' => $AttributeUpdates,
                                  'ConditionalOperator' => $ConditionalOperator,
+                                 'ConditionExpression' => $ConditionExpression,
                                  'Expected' => $Expected,
+                                 'ExpressionAttributeNames' => $ExpressionAttributeNames,
+                                 'ExpressionAttributeValues' => $ExpressionAttributeValues,
                                  'Key' => $Key,
                                  'ReturnConsumedCapacity' => $ReturnConsumedCapacity,
                                  'ReturnItemCollectionMetrics' => $ReturnItemCollectionMetrics,
                                  'ReturnValues' => $ReturnValues,
-                                 'TableName' => $TableName
+                                 'TableName' => $TableName,
+                                 'UpdateExpression' => $UpdateExpression,
                                  }));
     $self->_process_request($req, \&_decode_single_item_change_response);
 }
@@ -1265,6 +1276,7 @@ my $parameter_type_definitions = {
     TotalSegments => {
         type_check => 'integer',
     },
+    UpdateExpression => {},
 };
 
 
@@ -1282,6 +1294,9 @@ sub _make_payload {
     my %r;
     foreach my $field_name (@field_names) {
         my $value = $args->{$field_name};
+        if (!defined($value)) {
+            next;
+        }
         my $def = $parameter_type_definitions->{$field_name} || Carp::confess("Unknown parameter type: $field_name");
         if (defined($value)) {
             if ($def->{type_check} && $def->{type_check} eq 'integer') {
