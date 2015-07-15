@@ -86,7 +86,7 @@ declare AttributeValueType, as Defined, where {
             return scalar(@$v) > 0;
         } 
     } else {
-        return $v =~ /\S/;
+        return 1 if $v ne '';
     }
     return 0;
 };
