@@ -65,59 +65,68 @@ ok($description->is_done, "Successfully described table");
 
 $description = $description->get();
 
-# Creation times always change.
-delete $description->{CreationDateTime};
+# These are dynamic and must be normalized to match the expected data.
+$description->{CreationDateTime} = 'TestCreationDateTime'
+  if defined $description->{CreationDateTime};
+$description->{GlobalSecondaryIndexes}->[0]->{IndexArn} = 'TestIndexArn'
+  if defined $description->{GlobalSecondaryIndexes}->[0]->{IndexArn};
+$description->{TableArn} = 'TestTableArn'
+  if defined $description->{TableArn};
 
 is_deeply($description, 
-          {
-              'TableSizeBytes' => 0,
-              'ItemCount' => 0,
-              'GlobalSecondaryIndexes' => [
-                  {
-                      'IndexName' => 'EmailIndex',
-                      'KeySchema' => [
-                          {
-                              'KeyType' => 'HASH',
-                              'AttributeName' => 'email'
-                          }
-                      ],
-                      'ItemCount' => 0,
-                      'IndexSizeBytes' => 0,
-                      'Projection' => {
-                          'ProjectionType' => 'KEYS_ONLY'
-                      },
-                      'ProvisionedThroughput' => {
-                          'ReadCapacityUnits' => 2,
-                          'WriteCapacityUnits' => 2,
-                          'NumberOfDecreasesToday' => 0,
-                      },
-                      'IndexStatus' => 'ACTIVE'
-                  }
-              ],
-              'AttributeDefinitions' => [
-                  {
-                      'AttributeType' => 'S',
-                      'AttributeName' => 'email'
-                  },
-                  {
-                      'AttributeType' => 'N',
-                      'AttributeName' => 'user_id'
-                  }
-              ],
-              'KeySchema' => [
-                  {
-                      'KeyType' => 'HASH',
-                      'AttributeName' => 'user_id'
-                  }
-              ],
-              'TableName' => $table_name,
-              'ProvisionedThroughput' => {
-                  'ReadCapacityUnits' => 2,
-                  'NumberOfDecreasesToday' => 0,
-                  'WriteCapacityUnits' => 2,
-              },
-              'TableStatus' => 'ACTIVE'
-          }, "Table was correctly defined and described");
+    {
+        'TableSizeBytes' => 0,
+        'ItemCount' => 0,
+        'GlobalSecondaryIndexes' => [
+            {
+                'ItemCount' => 0,
+                'Projection' => {
+                    'ProjectionType' => 'KEYS_ONLY'
+                },
+                'IndexName' => 'EmailIndex',
+                'KeySchema' => [
+                    {
+                    'KeyType' => 'HASH',
+                    'AttributeName' => 'email'
+                    }
+                ],
+                'IndexArn' => 'TestIndexArn',
+                'IndexSizeBytes' => 0,
+                'ProvisionedThroughput' => {
+                    'ReadCapacityUnits' => 2,
+                    'NumberOfDecreasesToday' => 0,
+                    'WriteCapacityUnits' => 2
+                },
+                'IndexStatus' => 'ACTIVE'
+            }
+        ],
+        'CreationDateTime' => 'TestCreationDateTime',
+        'TableArn' => 'TestTableArn',
+        'AttributeDefinitions' => [
+            {
+                'AttributeType' => 'S',
+                'AttributeName' => 'email'
+            },
+            {
+                'AttributeType' => 'N',
+                'AttributeName' => 'user_id'
+            }
+        ],
+        'KeySchema' => [
+            {
+                'KeyType' => 'HASH',
+                'AttributeName' => 'user_id'
+            }
+        ],
+        'TableName' => $table_name,
+        'ProvisionedThroughput' => {
+            'ReadCapacityUnits' => 2,
+            'NumberOfDecreasesToday' => 0,
+            'WriteCapacityUnits' => 2
+        },
+        'TableStatus' => 'ACTIVE'
+    },
+    "Table was correctly defined and described");
 
 {
     my @all_tables;    
