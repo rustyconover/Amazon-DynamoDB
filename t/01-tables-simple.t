@@ -10,7 +10,7 @@ use Data::Dumper;
 unless ( $ENV{'AMAZON_DYNAMODB_EXPENSIVE_TESTS'} ) {
     plan skip_all => 'Testing this module for real costs money.';
 } else {
-    plan tests => 7;
+    plan tests => 9;
 }
 
 
@@ -58,6 +58,17 @@ ok($wait->is_done, "Created table is ready");
     
     is(scalar(grep { $_ eq $table_name } @all_tables), 1, "Newly created table was found");
 }
+
+my $update = $ddb->update_table(TableName => $table_name,
+                                ReadCapacityUnits => 1,
+                                WriteCapacityUnits => 1,
+                            );
+
+ok($update->is_done, "Create request was completed");
+
+my $update_wait = $ddb->wait_for_table_status(TableName => $table_name);
+
+ok($update_wait->is_done, "updated table is ready");
 
 ok($ddb->delete_table(TableName => $table_name)->is_done, "Successfully deleted table named $table_name");
 

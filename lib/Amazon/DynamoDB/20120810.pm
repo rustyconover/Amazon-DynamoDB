@@ -237,6 +237,44 @@ method delete_table(TableNameType :$TableName!) {
                             });
 }
 
+=head2 update_table
+
+Update a table. At the moment, this method does not support updating
+global secondary indexes or streams.
+
+It may take some time before the table is updated - use 
+L</wait_for_table_status> to poll until the status changes.
+
+Amazon Documentation:
+
+L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateTable.html>
+
+  $ddb->update_table(
+     TableName => $table_name,
+     ReadCapacityUnits => 2,
+     WriteCapacityUnits => 2);
+
+=cut
+
+method update_table(TableNameType : $TableName!,
+                    Int :$ReadCapacityUnits = 2,
+                    Int :$WriteCapacityUnits = 2,
+                ) {
+  
+  my %payload = (
+    TableName => $TableName,
+    ProvisionedThroughput => {
+      ReadCapacityUnits => int($ReadCapacityUnits),
+      WriteCapacityUnits => int($WriteCapacityUnits),
+    }
+  );
+    my $req = $self->make_request(
+        target => 'UpdateTable',
+        payload => \%payload,
+    );
+    $self->_process_request($req)
+}
+
 =head2 wait_for_table_status
 
 Waits for the given table to be marked as active.
