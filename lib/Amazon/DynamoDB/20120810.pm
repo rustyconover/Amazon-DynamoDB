@@ -750,6 +750,35 @@ method batch_get_item(CodeRef $code,
 }
 
 
+=head2 query
+
+Query a table for values using the table primary key or secondary indexes.
+
+Amazon Documentation:
+
+L<http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html>
+
+Additional parameters:
+
+=back
+
+  $ddb->query(
+    sub {
+      my $item = shift;
+      push @found_items, $item;
+    },
+    TableName => $table_name,
+		IndexName => $index_name,
+		Select => 'ALL_ATTRIBUTES',
+    KeyConditions => {
+      email_address => {
+				AttributeValueList => $email_address,
+        ComparisonOperator => 'EQ',
+      }
+    });
+
+=cut
+
 method query (CodeRef $code,
               AttributesToGetType :$AttributesToGet,
               StringBooleanType :$ConsistentRead,
