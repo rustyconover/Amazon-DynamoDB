@@ -64,62 +64,70 @@ ok($description->is_done, "Successfully described table");
 
 $description = $description->get();
 
-# Creation times always change.
-delete $description->{CreationDateTime};
+# These are dynamic and must be normalized to match the expected data.
+$description->{CreationDateTime} = 'TestCreationDateTime'
+  if defined $description->{CreationDateTime};
+$description->{LocalSecondaryIndexes}->[0]->{IndexArn} = 'TestIndexArn'
+  if defined $description->{LocalSecondaryIndexes}->[0]->{IndexArn};
+$description->{TableArn} = 'TestTableArn'
+  if defined $description->{TableArn};
 
 eq_or_diff($description, 
-          {
-              'TableSizeBytes' => 0,
-              'ItemCount' => 0,
-              'LocalSecondaryIndexes' => [
-                  {
-                      'IndexName' => 'UserDateIndex',
-                      'KeySchema' => [
-                          {
-                              'KeyType' => 'HASH',
-                              'AttributeName' => 'user_id'
-                          },
-                          {
-                              'KeyType' => 'RANGE',
-                              'AttributeName' => 'date'
-                          }
-                      ],
-                      'ItemCount' => 0,
-                      'IndexSizeBytes' => 0,
-                      'Projection' => {
-                          'ProjectionType' => 'KEYS_ONLY'
-                      },
-                  }
-              ],
-              'AttributeDefinitions' => [
-                  {
-                      'AttributeType' => 'N',
-                      'AttributeName' => 'date'
-                  },
-                  {
-                      'AttributeType' => 'N',
-                      'AttributeName' => 'user_id'
-                  }
-              ],
-              'KeySchema' => [
-                  {
-                      'KeyType' => 'HASH',
-                      'AttributeName' => 'user_id'
-                  },
-                  {
-                      'KeyType' => 'RANGE',
-                      'AttributeName' => 'date'
-                  },
-
-              ],
-              'TableName' => $table_name,
-              'ProvisionedThroughput' => {
-                  'ReadCapacityUnits' => 2,
-                  'NumberOfDecreasesToday' => 0,
-                  'WriteCapacityUnits' => 2
-              },
-              'TableStatus' => 'ACTIVE'
-          }, "Table was correctly defined and described");
+    {
+        'TableSizeBytes' => 0,
+        'ItemCount' => 0,
+        'CreationDateTime' => 'TestCreationDateTime',
+        'LocalSecondaryIndexes' => [
+            {
+                'IndexName' => 'UserDateIndex',
+                'KeySchema' => [
+                    {
+                        'KeyType' => 'HASH',
+                        'AttributeName' => 'user_id'
+                    },
+                    {
+                        'KeyType' => 'RANGE',
+                        'AttributeName' => 'date'
+                    }
+                ],
+                'ItemCount' => 0,
+                'IndexSizeBytes' => 0,
+                'IndexArn' => 'TestIndexArn',
+                'Projection' => {
+                    'ProjectionType' => 'KEYS_ONLY'
+                }
+            }
+        ],
+        'TableArn' => 'TestTableArn',
+        'AttributeDefinitions' => [
+            {
+                'AttributeType' => 'N',
+                'AttributeName' => 'date'
+            },
+            {
+                'AttributeType' => 'N',
+                'AttributeName' => 'user_id'
+            }
+        ],
+        'KeySchema' => [
+            {
+                'KeyType' => 'HASH',
+                'AttributeName' => 'user_id'
+            },
+            {
+                'KeyType' => 'RANGE',
+                'AttributeName' => 'date'
+            }
+        ],
+        'TableName' => $table_name,
+        'ProvisionedThroughput' => {
+            'ReadCapacityUnits' => 2,
+            'NumberOfDecreasesToday' => 0,
+            'WriteCapacityUnits' => 2
+        },
+        'TableStatus' => 'ACTIVE'
+    },
+    "Table was correctly defined and described");
 
 {
     my @all_tables;    
