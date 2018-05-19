@@ -68,6 +68,9 @@ use Module::Load;
 
 =head1 METHODS
 
+All methods should be documented in the versioned api:
+L<Amazon::DynamoDB::20120810>.
+
 =cut
 
 sub new {
